@@ -1,13 +1,24 @@
 import { useApp } from '../context/AppContext';
-import { Calendar, Target, Trash, Eye } from 'phosphor-react';
+import { Calendar, Target, Download, Eye, Clock } from 'phosphor-react';
 
 export default function ResultadosView() {
   const { state, dispatch } = useApp();
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este resultado de alocação?')) {
-      dispatch({ type: 'DELETE_RESULTADO_ALOCACAO', payload: id });
-    }
+  const handleViewDetails = (resultado: any) => {
+    // Aqui poderia abrir um modal com detalhes completos
+    console.log('Ver detalhes do resultado:', resultado);
+  };
+
+  const handleExportResult = (resultado: any) => {
+    // Exportar resultado como JSON ou CSV
+    const dataStr = JSON.stringify(resultado, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `alocacao_${resultado.id}_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const formatScore = (score: number) => {
@@ -49,7 +60,7 @@ export default function ResultadosView() {
       ) : (
         <div className="grid gap-4">
           {state.resultados_alocacao.map((resultado) => {
-            const projeto = state.projetos.find(p => p.id_projeto === resultado.projeto_id);
+            const projeto = state.projetos.find(p => p.id === resultado.projeto_id);
             
             return (
               <div key={resultado.id} className="card">
@@ -58,10 +69,14 @@ export default function ResultadosView() {
                     <div>
                       <h3 className="card-title">
                         <Target size={20} style={{ marginRight: '8px' }} />
-                        {projeto?.nome || 'Projeto não encontrado'}
+                        Resultado de Alocação
                       </h3>
                       <p className="card-description">
-                        Alocação gerada em {formatDate(resultado.data_geracao || resultado.created_at)}
+                        <strong>{projeto?.nome || 'Projeto não encontrado'}</strong>
+                      </p>
+                      <p className="card-description text-xs flex items-center gap-1">
+                        <Clock size={14} />
+                        Gerado em {formatDate(resultado.data_geracao || resultado.created_at)}
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
@@ -76,13 +91,25 @@ export default function ResultadosView() {
                           {formatScore(resultado.score_otimizacao)}%
                         </p>
                       </div>
-                      <button
-                        onClick={() => handleDelete(resultado.id)}
-                        className="btn btn-xs btn-danger"
-                        title="Excluir resultado"
-                      >
-                        <Trash size={12} />
-                      </button>
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleViewDetails(resultado)}
+                          className="btn btn-sm btn-secondary"
+                          title="Ver detalhes completos"
+                        >
+                          <Eye size={14} />
+                          Detalhes
+                        </button>
+                        <button
+                          onClick={() => handleExportResult(resultado)}
+                          className="btn btn-sm btn-primary"
+                          title="Exportar resultado"
+                        >
+                          <Download size={14} />
+                          Exportar
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -104,65 +131,199 @@ export default function ResultadosView() {
                     </div>
                   </div>
 
-                  {/* Alocações */}
+                  {/* Análise de Viabilidade */}
+                  {resultado.analise_detalhada && (
+                    <div className="mb-6">
+                      <h4 className="font-semibold mb-3">Análise de Viabilidade:</h4>
+                      
+                      {/* Status da Viabilidade */}
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="text-sm font-medium">Status:</span>
+                        <span className={`badge ${
+                          resultado.analise_detalhada.viabilidade === 'alta' ? 'badge-success' :
+                          resultado.analise_detalhada.viabilidade === 'media' ? 'badge-warning' : 'badge-danger'
+                        }`}>
+                          {resultado.analise_detalhada.viabilidade === 'alta' ? '✅ Alta Viabilidade' :
+                           resultado.analise_detalhada.viabilidade === 'media' ? '⚠️ Viabilidade Média' : '❌ Baixa Viabilidade'}
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          ({resultado.analise_detalhada.total_turmas} turmas, {resultado.analise_detalhada.total_salas} salas ativas)
+                        </span>
+                      </div>
+
+                      {/* Problemas Críticos */}
+                      {resultado.analise_detalhada.problemas_criticos && resultado.analise_detalhada.problemas_criticos.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                          <h5 className="font-semibold text-red-800 mb-2">🚨 Problemas Críticos ({resultado.analise_detalhada.problemas_criticos.length}):</h5>
+                          {resultado.analise_detalhada.problemas_criticos.map((problema, idx) => (
+                            <div key={idx} className="mb-3 last:mb-0">
+                              <p className="font-medium text-red-700">{problema.resumo}</p>
+                              {problema.detalhes && problema.detalhes.length > 0 && (
+                                <ul className="mt-1 ml-4 space-y-1">
+                                  {problema.detalhes.map((detalhe, detIdx) => (
+                                    <li key={detIdx} className="text-sm text-red-600">• {detalhe}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Avisos */}
+                      {resultado.analise_detalhada.avisos && resultado.analise_detalhada.avisos.length > 0 && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                          <h5 className="font-semibold text-yellow-800 mb-2">⚠️ Avisos ({resultado.analise_detalhada.avisos.length}):</h5>
+                          <ul className="space-y-1">
+                            {resultado.analise_detalhada.avisos.map((aviso, idx) => (
+                              <li key={idx} className="text-sm text-yellow-700">• {aviso}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Caso sem problemas */}
+                      {(!resultado.analise_detalhada.problemas_criticos || resultado.analise_detalhada.problemas_criticos.length === 0) &&
+                       (!resultado.analise_detalhada.avisos || resultado.analise_detalhada.avisos.length === 0) && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <p className="text-green-800">✅ Nenhum problema identificado! Todas as alocações são viáveis.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Estatísticas Resumidas */}
+                  <div className="mb-6">
+                    <h4 className="font-semibold mb-3">Estatísticas do Resultado:</h4>
+                    <div className="grid grid-cols-4 gap-4 text-center">
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-2xl font-bold text-blue-600">{resultado.alocacoes?.length || 0}</p>
+                        <p className="text-sm text-gray-600">Alocações</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-2xl font-bold" style={{ color: getScoreColor(resultado.score_otimizacao) }}>
+                          {formatScore(resultado.score_otimizacao)}%
+                        </p>
+                        <p className="text-sm text-gray-600">Score Geral</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-2xl font-bold text-green-600">
+                          {resultado.alocacoes?.filter(a => a.compatibilidade_score >= 80).length || 0}
+                        </p>
+                        <p className="text-sm text-gray-600">Alta Qualidade</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-2xl font-bold text-purple-600">
+                          {resultado.acuracia_modelo || 0}%
+                        </p>
+                        <p className="text-sm text-gray-600">Precisão IA</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Alocações Detalhadas */}
                   <div>
-                    <h4 className="font-semibold mb-4">Alocações Realizadas ({resultado.alocacoes?.length || 0}):</h4>
-                    <div className="grid gap-3">
-                      {resultado.alocacoes && resultado.alocacoes.length > 0 ? resultado.alocacoes.map((alocacao) => (
-                        <div key={alocacao.id} className="card" style={{ border: '1px solid var(--border-color)' }}>
+                    <h4 className="font-semibold mb-4">Alocações Detalhadas ({resultado.alocacoes?.length || 0}):</h4>
+                    <div className="space-y-3">
+                      {resultado.alocacoes && resultado.alocacoes.length > 0 ? resultado.alocacoes.map((alocacao, index) => (
+                        <div key={alocacao.id || index} className="card" style={{ border: '1px solid var(--border-color)', backgroundColor: '#fafafa' }}>
                           <div className="card-content">
                             <div className="flex justify-between items-start">
                               <div style={{ flex: 1 }}>
-                                <div className="flex items-center gap-4 mb-2">
-                                  <h5 className="font-semibold">{alocacao.turma.nome}</h5>
-                                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                                    →
-                                  </span>
-                                  <h5 className="font-semibold">{alocacao.sala.nome}</h5>
+                                <div className="flex items-center gap-3 mb-3">
+                                  <span className="badge badge-primary text-xs">#{index + 1}</span>
+                                  <h5 className="font-semibold text-blue-700">{alocacao.turma.nome}</h5>
+                                  <span className="text-lg" style={{ color: 'var(--text-secondary)' }}>→</span>
+                                  <h5 className="font-semibold text-green-700">{alocacao.sala.nome}</h5>
                                 </div>
                                 
-                                <div className="grid grid-cols-3 gap-4 text-sm">
-                                  <div>
-                                    <span style={{ color: 'var(--text-secondary)' }}>Alunos: </span>
-                                    <strong>{alocacao.turma.alunos}</strong>
+                                <div className="grid grid-cols-4 gap-3 text-sm mb-2">
+                                  <div className="bg-white p-2 rounded">
+                                    <span className="text-gray-500">Alunos:</span>
+                                    <strong className="block text-blue-600">{alocacao.turma.alunos}</strong>
                                   </div>
-                                  <div>
-                                    <span style={{ color: 'var(--text-secondary)' }}>Capacidade: </span>
-                                    <strong>{alocacao.sala.capacidade_total}</strong>
+                                  <div className="bg-white p-2 rounded">
+                                    <span className="text-gray-500">Capacidade:</span>
+                                    <strong className="block text-green-600">{alocacao.sala.capacidade_total}</strong>
                                   </div>
-                                  <div>
-                                    <span style={{ color: 'var(--text-secondary)' }}>Especiais: </span>
-                                    <strong>{alocacao.turma.esp_necessarias}/{alocacao.sala.cadeiras_especiais}</strong>
+                                  <div className="bg-white p-2 rounded">
+                                    <span className="text-gray-500">Ocupação:</span>
+                                    <strong className="block text-orange-600">
+                                      {Math.round((alocacao.turma.alunos / alocacao.sala.capacidade_total) * 100)}%
+                                    </strong>
+                                  </div>
+                                  <div className="bg-white p-2 rounded">
+                                    <span className="text-gray-500">Especiais:</span>
+                                    <strong className="block text-purple-600">
+                                      {alocacao.turma.esp_necessarias}/{alocacao.sala.cadeiras_especiais}
+                                    </strong>
                                   </div>
                                 </div>
 
                                 {alocacao.observacoes && (
                                   <div className="mt-2">
-                                    <span className="badge badge-warning text-xs">
-                                      ⚠️ {alocacao.observacoes}
+                                    <span className="badge badge-info text-xs">
+                                      💡 {alocacao.observacoes}
                                     </span>
                                   </div>
                                 )}
                               </div>
                               
-                              <div className="text-center ml-4">
-                                <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                                  Compatibilidade
+                              <div className="text-center ml-4 min-w-[80px]">
+                                <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                  Score
                                 </span>
                                 <p 
-                                  className="text-lg font-bold"
+                                  className="text-xl font-bold"
                                   style={{ color: getScoreColor(alocacao.compatibilidade_score) }}
                                 >
                                   {formatScore(alocacao.compatibilidade_score)}%
                                 </p>
+                                <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                  <div 
+                                    className="h-2 rounded-full" 
+                                    style={{ 
+                                      width: `${alocacao.compatibilidade_score}%`,
+                                      backgroundColor: getScoreColor(alocacao.compatibilidade_score)
+                                    }}
+                                  ></div>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
                       )) : (
-                        <p className="text-sm text-center" style={{ color: 'var(--text-secondary)', padding: 'var(--spacing-4)' }}>
-                          Nenhuma alocação encontrada
-                        </p>
+                        <div className="bg-gray-50 rounded-lg p-8 text-center">
+                          <Target size={48} className="text-gray-400 mx-auto mb-4" />
+                          <h5 className="font-semibold text-gray-700 mb-2">Nenhuma Alocação Realizada</h5>
+                          <p className="text-gray-600 mb-4">
+                            O algoritmo não conseguiu gerar alocações viáveis para este projeto.
+                          </p>
+                          {resultado.analise_detalhada && resultado.analise_detalhada.problemas_criticos && resultado.analise_detalhada.problemas_criticos.length > 0 ? (
+                            <div className="bg-red-100 border border-red-300 rounded-lg p-4 text-left">
+                              <p className="font-medium text-red-800 mb-2">🔍 Principais motivos:</p>
+                              <ul className="space-y-1">
+                                {resultado.analise_detalhada.problemas_criticos.slice(0, 3).map((problema, idx) => (
+                                  <li key={idx} className="text-sm text-red-700">
+                                    • {problema.resumo}
+                                  </li>
+                                ))}
+                              </ul>
+                              {resultado.analise_detalhada.problemas_criticos.length > 3 && (
+                                <p className="text-xs text-red-600 mt-2">
+                                  E mais {resultado.analise_detalhada.problemas_criticos.length - 3} problema(s)...
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="bg-blue-100 border border-blue-300 rounded-lg p-4">
+                              <p className="text-sm text-blue-800">
+                                💡 <strong>Sugestões:</strong> Verifique se as salas têm capacidade e recursos suficientes para as turmas, 
+                                ou considere ajustar os parâmetros de alocação.
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>

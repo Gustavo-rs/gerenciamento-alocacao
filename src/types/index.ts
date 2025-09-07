@@ -81,6 +81,19 @@ export interface ResultadoAlocacao {
   alocacoes?: AlocacaoItem[];
   score_otimizacao: number;
   data_geracao?: string;
+  acuracia_modelo?: number;
+  analise_detalhada?: {
+    problemas_criticos: Array<{
+      turma?: string;
+      tipo: string;
+      detalhes?: string[];
+      resumo: string;
+    }>;
+    avisos: string[];
+    total_turmas: number;
+    total_salas: number;
+    viabilidade: 'alta' | 'media' | 'baixa';
+  };
   // Parâmetros podem vir de duas formas (backend vs frontend)
   parametros_usados?: {
     priorizar_capacidade: boolean;
