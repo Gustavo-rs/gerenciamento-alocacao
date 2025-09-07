@@ -1,35 +1,62 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { AppProvider } from './context/AppContext';
+import Layout from './components/Layout';
+import Dashboard from './components/Dashboard';
+import ProjetoDetalhes from './components/ProjetoDetalhes';
+import ProjetosManager from './components/ProjetosManager';
+import ResultadosView from './components/ResultadosView';
+import type { ProjetoAlocacao } from './types';
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+interface AppContentProps {
+  activeTab: string;
 }
 
-export default App
+function AppContent({ activeTab }: AppContentProps) {
+  const [selectedProjeto, setSelectedProjeto] = useState<ProjetoAlocacao | null>(null);
+
+  const renderContent = () => {
+    // Se um projeto está selecionado, mostrar os detalhes
+    if (selectedProjeto) {
+      return (
+        <ProjetoDetalhes 
+          projeto={selectedProjeto}
+          onBack={() => setSelectedProjeto(null)}
+        />
+      );
+    }
+
+    switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard />;
+      
+      case 'projetos':
+        return (
+          <ProjetosManager 
+            onEditProjeto={() => {}}
+            onShowForm={() => {}}
+            onSelectProjeto={setSelectedProjeto}
+          />
+        );
+      
+      case 'resultados':
+        return <ResultadosView />;
+      
+      default:
+        return <Dashboard />;
+    }
+  };
+
+  return renderContent();
+}
+
+function App() {
+  return (
+    <AppProvider>
+      <Layout>
+        {(activeTab) => <AppContent activeTab={activeTab} />}
+      </Layout>
+    </AppProvider>
+  );
+}
+
+export default App;
