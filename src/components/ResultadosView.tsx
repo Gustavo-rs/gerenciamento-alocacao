@@ -20,7 +20,8 @@ export default function ResultadosView() {
     return 'var(--danger-color)';
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'Data não disponível';
     return new Date(dateString).toLocaleString('pt-BR');
   };
 
@@ -60,7 +61,7 @@ export default function ResultadosView() {
                         {projeto?.nome || 'Projeto não encontrado'}
                       </h3>
                       <p className="card-description">
-                        Alocação gerada em {formatDate(resultado.data_geracao)}
+                        Alocação gerada em {formatDate(resultado.data_geracao || resultado.created_at)}
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
@@ -91,13 +92,13 @@ export default function ResultadosView() {
                   <div className="mb-6">
                     <h4 className="font-semibold mb-2">Parâmetros de Otimização:</h4>
                     <div className="flex flex-wrap gap-2">
-                      {resultado.parametros_usados.priorizar_capacidade && (
+                      {(resultado.parametros_usados?.priorizar_capacidade || resultado.priorizar_capacidade) && (
                         <span className="badge badge-info">Capacidade</span>
                       )}
-                      {resultado.parametros_usados.priorizar_especiais && (
+                      {(resultado.parametros_usados?.priorizar_especiais || resultado.priorizar_especiais) && (
                         <span className="badge badge-info">Cadeiras Especiais</span>
                       )}
-                      {resultado.parametros_usados.priorizar_proximidade && (
+                      {(resultado.parametros_usados?.priorizar_proximidade || resultado.priorizar_proximidade) && (
                         <span className="badge badge-info">Proximidade</span>
                       )}
                     </div>
@@ -105,9 +106,9 @@ export default function ResultadosView() {
 
                   {/* Alocações */}
                   <div>
-                    <h4 className="font-semibold mb-4">Alocações Realizadas ({resultado.alocacoes.length}):</h4>
+                    <h4 className="font-semibold mb-4">Alocações Realizadas ({resultado.alocacoes?.length || 0}):</h4>
                     <div className="grid gap-3">
-                      {resultado.alocacoes.map((alocacao) => (
+                      {resultado.alocacoes && resultado.alocacoes.length > 0 ? resultado.alocacoes.map((alocacao) => (
                         <div key={alocacao.id} className="card" style={{ border: '1px solid var(--border-color)' }}>
                           <div className="card-content">
                             <div className="flex justify-between items-start">
@@ -158,7 +159,11 @@ export default function ResultadosView() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      )) : (
+                        <p className="text-sm text-center" style={{ color: 'var(--text-secondary)', padding: 'var(--spacing-4)' }}>
+                          Nenhuma alocação encontrada
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

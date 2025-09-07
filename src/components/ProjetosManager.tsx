@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { ProjetoAlocacao, FormProjetoAlocacao } from '../types';
 import { Plus, FolderOpen, Eye, PencilSimple, Trash, FloppyDisk, X, CheckCircle, Clock, Gear } from 'phosphor-react';
+import LoadingSpinner from './LoadingSpinner';
+import ErrorMessage from './ErrorMessage';
 
 interface ProjetosManagerProps {
   onEditProjeto: (projeto: ProjetoAlocacao | null) => void;
@@ -10,7 +12,7 @@ interface ProjetosManagerProps {
 }
 
 export default function ProjetosManager({ onEditProjeto, onShowForm, onSelectProjeto }: ProjetosManagerProps) {
-  const { state, dispatch } = useApp();
+  const { state, createProjeto, updateProjeto, deleteProjeto, loadProjetos } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [editingProjeto, setEditingProjeto] = useState<ProjetoAlocacao | null>(null);
   
@@ -19,37 +21,36 @@ export default function ProjetosManager({ onEditProjeto, onShowForm, onSelectPro
     descricao: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Calcular status automaticamente
-    let status: 'configuracao' | 'pronto' | 'processando' | 'concluido' = 'configuracao';
-    const salasCount = editingProjeto?.salas.length || 0;
-    const turmasCount = editingProjeto?.turmas.length || 0;
-    
-    if (salasCount > 0 && turmasCount > 0) {
-      status = 'pronto';
-    }
-
-    const novoProjeto: ProjetoAlocacao = {
+    const projetoData = {
+      ...formData,
       id_projeto: editingProjeto?.id_projeto || `alocacao_${Date.now()}`,
       data_criacao: editingProjeto?.data_criacao || new Date().toISOString(),
+      status: 'CONFIGURACAO' as const,
       salas: editingProjeto?.salas || [],
       turmas: editingProjeto?.turmas || [],
-      status,
-      ...formData,
     };
 
-    if (editingProjeto) {
-      dispatch({ type: 'UPDATE_PROJETO', payload: novoProjeto });
+    let success = false;
+    
+    if (editingProjeto && editingProjeto.id) {
+      success = await updateProjeto(editingProjeto.id, projetoData);
     } else {
-      dispatch({ type: 'ADD_PROJETO', payload: novoProjeto });
+      success = await createProjeto(projetoData);
     }
 
-    // Reset
-    setFormData({ nome: '', descricao: '' });
-    setShowForm(false);
-    setEditingProjeto(null);
+    if (success) {
+      // Reset form
+      setFormData({ nome: '', descricao: '' });
+      setShowForm(false);
+      setEditingProjeto(null);
+      // Reload projetos para pegar dados atualizados
+      await loadProjetos();
+    } else {
+      alert('Erro ao salvar projeto. Tente novamente.');
+    }
   };
 
   const handleEdit = (projeto: ProjetoAlocacao) => {
@@ -61,33 +62,42 @@ export default function ProjetosManager({ onEditProjeto, onShowForm, onSelectPro
     setShowForm(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (projeto: ProjetoAlocacao) => {
     if (window.confirm('Tem certeza que deseja excluir este projeto? Todos os dados serão perdidos.')) {
-      dispatch({ type: 'DELETE_PROJETO', payload: id });
+      if (projeto.id) {
+        const success = await deleteProjeto(projeto.id);
+        if (success) {
+          await loadProjetos();
+        } else {
+          alert('Erro ao excluir projeto. Tente novamente.');
+        }
+      }
     }
   };
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      configuracao: 'badge-warning',
-      pronto: 'badge-info',
-      processando: 'badge-warning',
-      concluido: 'badge-success'
+      CONFIGURACAO: 'badge-warning',
+      PRONTO: 'badge-info',
+      PROCESSANDO: 'badge-warning',
+      ALOCADO: 'badge-success',
+      CONCLUIDO: 'badge-success'
     };
     
     const config = {
-      configuracao: { label: 'Configuração', icon: <Gear size={10} style={{ marginRight: '4px' }} /> },
-      pronto: { label: 'Pronto', icon: <Clock size={10} style={{ marginRight: '4px' }} /> },
-      processando: { label: 'Processando', icon: <Clock size={10} style={{ marginRight: '4px' }} /> },
-      concluido: { label: 'Concluído', icon: <CheckCircle size={10} style={{ marginRight: '4px' }} /> }
+      CONFIGURACAO: { label: 'Configuração', icon: <Gear size={10} style={{ marginRight: '4px' }} /> },
+      PRONTO: { label: 'Pronto', icon: <Clock size={10} style={{ marginRight: '4px' }} /> },
+      PROCESSANDO: { label: 'Processando', icon: <Clock size={10} style={{ marginRight: '4px' }} /> },
+      ALOCADO: { label: 'Alocado', icon: <CheckCircle size={10} style={{ marginRight: '4px' }} /> },
+      CONCLUIDO: { label: 'Concluído', icon: <CheckCircle size={10} style={{ marginRight: '4px' }} /> }
     };
 
     const statusConfig = config[status as keyof typeof config];
 
     return (
       <span className={`badge ${badges[status as keyof typeof badges]}`}>
-        {statusConfig.icon}
-        {statusConfig.label}
+        {statusConfig?.icon}
+        {statusConfig?.label || status}
       </span>
     );
   };
@@ -168,7 +178,14 @@ export default function ProjetosManager({ onEditProjeto, onShowForm, onSelectPro
 
       {/* Lista de Projetos */}
       <div className="grid gap-4">
-        {state.projetos.length === 0 ? (
+        {state.loading ? (
+          <LoadingSpinner text="Carregando projetos..." />
+        ) : state.error ? (
+          <ErrorMessage 
+            message={state.error} 
+            onRetry={loadProjetos}
+          />
+        ) : state.projetos.length === 0 ? (
           <div className="card">
             <div className="card-content text-center" style={{ padding: 'var(--spacing-8)' }}>
               <FolderOpen size={48} color="var(--text-secondary)" style={{ marginBottom: 'var(--spacing-4)' }} />
@@ -244,7 +261,7 @@ export default function ProjetosManager({ onEditProjeto, onShowForm, onSelectPro
                       <PencilSimple size={14} />
                     </button>
                     <button
-                      onClick={() => handleDelete(projeto.id_projeto)}
+                      onClick={() => handleDelete(projeto)}
                       className="btn btn-sm btn-danger"
                       title="Excluir alocação"
                     >

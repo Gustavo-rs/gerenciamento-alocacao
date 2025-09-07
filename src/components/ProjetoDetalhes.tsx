@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import type { ProjetoAlocacao, Sala, Turma, FormSala, FormTurma, ResultadoAlocacao, AlocacaoItem } from '../types';
 import { 
@@ -23,9 +23,11 @@ interface ProjetoDetalhesProps {
   onBack: () => void;
 }
 
-export default function ProjetoDetalhes({ projeto, onBack }: ProjetoDetalhesProps) {
-  const { dispatch } = useApp();
+export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: ProjetoDetalhesProps) {
+  const { executarAlocacao, loadProjeto, addSalaToProjeto, removeSalaFromProjeto, addTurmaToProjeto, removeTurmaFromProjeto } = useApp();
   
+  // Estado local do projeto que será atualizado em tempo real
+  const [projeto, setProjeto] = useState<ProjetoAlocacao>(projetoProp);
   const [activeSection, setActiveSection] = useState<'salas' | 'turmas'>('salas');
   const [showSalaForm, setShowSalaForm] = useState(false);
   const [showTurmaForm, setShowTurmaForm] = useState(false);
@@ -37,7 +39,7 @@ export default function ProjetoDetalhes({ projeto, onBack }: ProjetoDetalhesProp
     nome: '',
     capacidade_total: 0,
     localizacao: '',
-    status: 'ativa',
+    status: 'ATIVA',
     cadeiras_moveis: 0,
     cadeiras_especiais: 0,
   });
@@ -50,142 +52,148 @@ export default function ProjetoDetalhes({ projeto, onBack }: ProjetoDetalhesProp
     esp_necessarias: 0,
   });
 
-  const handleAddSala = () => {
-    const novaSala: Sala = {
+  // Sincronizar estado local quando o prop projeto mudar
+  useEffect(() => {
+    setProjeto(projetoProp);
+  }, [projetoProp]);
+
+  const handleAddSala = async () => {
+    if (!projeto.id) {
+      alert('Erro: ID do projeto não encontrado.');
+      return;
+    }
+
+    const novaSala = {
       id_sala: `sala_${Date.now()}`,
       ...salaForm,
+      status: salaForm.status.toUpperCase(),
     };
 
-    const projetoAtualizado: ProjetoAlocacao = {
-      ...projeto,
-      salas: [...projeto.salas, novaSala]
-    };
-
-    dispatch({ type: 'UPDATE_PROJETO', payload: projetoAtualizado });
+    const projetoAtualizado = await addSalaToProjeto(projeto.id, novaSala);
     
-    setSalaForm({
-      nome: '',
-      capacidade_total: 0,
-      localizacao: '',
-      status: 'ativa',
-      cadeiras_moveis: 0,
-      cadeiras_especiais: 0,
-    });
-    setShowSalaForm(false);
+    if (projetoAtualizado) {
+      // Atualizar estado local com dados atualizados
+      setProjeto(projetoAtualizado);
+      setSalaForm({
+        nome: '',
+        capacidade_total: 0,
+        localizacao: '',
+        status: 'ATIVA',
+        cadeiras_moveis: 0,
+        cadeiras_especiais: 0,
+      });
+      setShowSalaForm(false);
+    } else {
+      alert('Erro ao adicionar sala. Tente novamente.');
+    }
   };
 
-  const handleAddTurma = () => {
-    const novaTurma: Turma = {
+  const handleAddTurma = async () => {
+    if (!projeto.id) {
+      alert('Erro: ID do projeto não encontrado.');
+      return;
+    }
+
+    const novaTurma = {
       id_turma: `turma_${Date.now()}`,
       ...turmaForm,
     };
 
-    const projetoAtualizado: ProjetoAlocacao = {
-      ...projeto,
-      turmas: [...projeto.turmas, novaTurma]
-    };
-
-    dispatch({ type: 'UPDATE_PROJETO', payload: projetoAtualizado });
+    const projetoAtualizado = await addTurmaToProjeto(projeto.id, novaTurma);
     
-    setTurmaForm({
-      nome: '',
-      alunos: 0,
-      duracao_min: 60,
-      esp_necessarias: 0,
-    });
-    setShowTurmaForm(false);
+    if (projetoAtualizado) {
+      // Atualizar estado local com dados atualizados
+      setProjeto(projetoAtualizado);
+      setTurmaForm({
+        nome: '',
+        alunos: 0,
+        duracao_min: 60,
+        esp_necessarias: 0,
+      });
+      setShowTurmaForm(false);
+    } else {
+      alert('Erro ao adicionar turma. Tente novamente.');
+    }
   };
 
-  const handleDeleteSala = (salaId: string) => {
+  const handleDeleteSala = async (sala: Sala) => {
     if (window.confirm('Tem certeza que deseja remover esta sala do projeto?')) {
-      const projetoAtualizado: ProjetoAlocacao = {
-        ...projeto,
-        salas: projeto.salas.filter(sala => sala.id_sala !== salaId)
-      };
-      dispatch({ type: 'UPDATE_PROJETO', payload: projetoAtualizado });
-    }
-  };
-
-  const handleDeleteTurma = (turmaId: string) => {
-    if (window.confirm('Tem certeza que deseja remover esta turma do projeto?')) {
-      const projetoAtualizado: ProjetoAlocacao = {
-        ...projeto,
-        turmas: projeto.turmas.filter(turma => turma.id_turma !== turmaId)
-      };
-      dispatch({ type: 'UPDATE_PROJETO', payload: projetoAtualizado });
-    }
-  };
-
-  const handleExecutarAlocacao = () => {
-    // Simulação da alocação inteligente
-    const alocacoes: AlocacaoItem[] = projeto.turmas.map((turma, index) => {
-      const salasCompativeis = projeto.salas.filter(sala => 
-        sala.status === 'ativa' &&
-        sala.capacidade_total >= turma.alunos &&
-        sala.cadeiras_especiais >= turma.esp_necessarias
-      );
-
-      const salaEscolhida = salasCompativeis[index % salasCompativeis.length] || projeto.salas[0];
-      
-      return {
-        id: `alocacao_${Date.now()}_${index}`,
-        sala: salaEscolhida,
-        turma: turma,
-        compatibilidade_score: Math.random() * 100,
-        observacoes: salasCompativeis.length === 0 ? 'Sala não atende todos os requisitos' : undefined
-      };
-    });
-
-    const resultado: ResultadoAlocacao = {
-      id: `resultado_${Date.now()}`,
-      projeto_id: projeto.id_projeto,
-      alocacoes,
-      score_otimizacao: Math.random() * 100,
-      data_geracao: new Date().toISOString(),
-      parametros_usados: {
-        priorizar_capacidade: true,
-        priorizar_especiais: true,
-        priorizar_proximidade: true,
+      if (!projeto.id || !sala.id) {
+        alert('Erro: IDs não encontrados.');
+        return;
       }
-    };
 
-    dispatch({ type: 'ADD_RESULTADO_ALOCACAO', payload: resultado });
+      const projetoAtualizado = await removeSalaFromProjeto(projeto.id, sala.id);
+      if (projetoAtualizado) {
+        // Atualizar estado local com dados atualizados
+        setProjeto(projetoAtualizado);
+      } else {
+        alert('Erro ao remover sala. Tente novamente.');
+      }
+    }
+  };
 
-    // Atualizar status do projeto
-    const projetoAtualizado: ProjetoAlocacao = {
-      ...projeto,
-      status: 'alocado',
-      ultima_alocacao: new Date().toISOString()
-    };
-    dispatch({ type: 'UPDATE_PROJETO', payload: projetoAtualizado });
+  const handleDeleteTurma = async (turma: Turma) => {
+    if (window.confirm('Tem certeza que deseja remover esta turma do projeto?')) {
+      if (!projeto.id || !turma.id) {
+        alert('Erro: IDs não encontrados.');
+        return;
+      }
 
-    alert('Alocação inteligente executada com sucesso! Verifique os resultados na aba "Resultados".');
+      const projetoAtualizado = await removeTurmaFromProjeto(projeto.id, turma.id);
+      if (projetoAtualizado) {
+        // Atualizar estado local com dados atualizados
+        setProjeto(projetoAtualizado);
+      } else {
+        alert('Erro ao remover turma. Tente novamente.');
+      }
+    }
+  };
+
+  const handleExecutarAlocacao = async () => {
+    if (!projeto.id) {
+      alert('Erro: ID do projeto não encontrado.');
+      return;
+    }
+
+    const success = await executarAlocacao(projeto.id);
+    
+    if (success) {
+      alert('Alocação inteligente executada com sucesso! Verifique os resultados na aba "Resultados".');
+      // Recarregar projeto específico para obter status atualizado
+      const projetoAtualizado = await loadProjeto(projeto.id);
+      if (projetoAtualizado) {
+        setProjeto(projetoAtualizado);
+      }
+    } else {
+      alert('Erro ao executar alocação. Verifique se o backend está rodando e tente novamente.');
+    }
   };
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      ativa: 'badge-success',
-      inativa: 'badge-danger',
-      manutencao: 'badge-warning'
+      ATIVA: 'badge-success',
+      INATIVA: 'badge-danger',
+      MANUTENCAO: 'badge-warning'
     };
     
     const icons = {
-      ativa: <CheckCircle size={16} />,
-      inativa: <XCircle size={16} />,
-      manutencao: <Wrench size={16} />
+      ATIVA: <CheckCircle size={16} />,
+      INATIVA: <XCircle size={16} />,
+      MANUTENCAO: <Wrench size={16} />
     };
     
     const labels = {
-      ativa: 'Ativa',
-      inativa: 'Inativa',
-      manutencao: 'Manutenção'
+      ATIVA: 'Ativa',
+      INATIVA: 'Inativa',
+      MANUTENCAO: 'Manutenção'
     };
 
     return (
       <span className={`badge ${badges[status as keyof typeof badges]}`}>
         {icons[status as keyof typeof icons]}
         <span style={{ marginLeft: '6px' }}>
-          {labels[status as keyof typeof labels]}
+          {labels[status as keyof typeof labels] || status}
         </span>
       </span>
     );
@@ -416,7 +424,7 @@ export default function ProjetoDetalhes({ projeto, onBack }: ProjetoDetalhesProp
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() => handleDeleteSala(sala.id_sala)}
+                        onClick={() => handleDeleteSala(sala)}
                         className="btn btn-xs btn-danger"
                         title="Remover sala"
                       >
@@ -531,7 +539,7 @@ export default function ProjetoDetalhes({ projeto, onBack }: ProjetoDetalhesProp
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() => handleDeleteTurma(turma.id_turma)}
+                        onClick={() => handleDeleteTurma(turma)}
                         className="btn btn-xs btn-danger"
                         title="Remover turma"
                       >
