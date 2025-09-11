@@ -17,6 +17,7 @@ import {
   Target,
   Play
 } from 'phosphor-react';
+import { SkeletonProjetoHeader, SkeletonItemsList, SkeletonForm } from './Skeleton';
 
 interface ProjetoDetalhesProps {
   projeto: ProjetoAlocacao;
@@ -33,6 +34,10 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
   const [showTurmaForm, setShowTurmaForm] = useState(false);
   const [editingSala, setEditingSala] = useState<Sala | null>(null);
   const [editingTurma, setEditingTurma] = useState<Turma | null>(null);
+  
+  // Estados de loading local
+  const [isLoadingOperation, setIsLoadingOperation] = useState(false);
+  const [isExecutingAllocation, setIsExecutingAllocation] = useState(false);
 
   // Formulário de Sala
   const [salaForm, setSalaForm] = useState<FormSala>({
@@ -63,6 +68,8 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
       return;
     }
 
+    setIsLoadingOperation(true);
+    
     const novaSala = {
       id_sala: `sala_${Date.now()}`,
       ...salaForm,
@@ -86,6 +93,8 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
     } else {
       alert('Erro ao adicionar sala. Tente novamente.');
     }
+    
+    setIsLoadingOperation(false);
   };
 
   const handleAddTurma = async () => {
@@ -156,6 +165,8 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
       return;
     }
 
+    setIsExecutingAllocation(true);
+    
     const success = await executarAlocacao(projeto.id);
     
     if (success) {
@@ -168,6 +179,8 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
     } else {
       alert('Erro ao executar alocação. Verifique se o backend está rodando e tente novamente.');
     }
+    
+    setIsExecutingAllocation(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -221,10 +234,20 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
         {podeExecutarAlocacao && (
           <button
             onClick={handleExecutarAlocacao}
+            disabled={isExecutingAllocation}
             className="btn btn-primary"
           >
-            <Brain size={16} style={{ marginRight: '6px' }} />
-            Executar Alocação Inteligente
+            {isExecutingAllocation ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                Executando...
+              </>
+            ) : (
+              <>
+                <Brain size={16} style={{ marginRight: '6px' }} />
+                Executar Alocação Inteligente
+              </>
+            )}
           </button>
         )}
       </div>
@@ -402,39 +425,43 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
           )}
 
           <div className="grid gap-4">
-            {projeto.salas.map((sala) => (
-              <div key={sala.id_sala} className="card">
-                <div className="card-content">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold">{sala.nome}</h3>
-                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {sala.localizacao}
-                      </p>
-                      <div className="flex gap-2 mt-2 flex-wrap">
-                        <span className="badge badge-info">{sala.capacidade_total} lugares</span>
-                        {sala.cadeiras_especiais > 0 && (
-                          <span className="badge badge-warning">{sala.cadeiras_especiais} especiais</span>
-                        )}
-                        {sala.cadeiras_moveis > 0 && (
-                          <span className="badge badge-info">{sala.cadeiras_moveis} móveis</span>
-                        )}
-                        {getStatusBadge(sala.status)}
+            {isLoadingOperation ? (
+              <SkeletonItemsList />
+            ) : (
+              projeto.salas.map((sala) => (
+                <div key={sala.id_sala} className="card">
+                  <div className="card-content">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold">{sala.nome}</h3>
+                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                          {sala.localizacao}
+                        </p>
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                          <span className="badge badge-info">{sala.capacidade_total} lugares</span>
+                          {sala.cadeiras_especiais > 0 && (
+                            <span className="badge badge-warning">{sala.cadeiras_especiais} especiais</span>
+                          )}
+                          {sala.cadeiras_moveis > 0 && (
+                            <span className="badge badge-info">{sala.cadeiras_moveis} móveis</span>
+                          )}
+                          {getStatusBadge(sala.status)}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleDeleteSala(sala)}
-                        className="btn btn-xs btn-danger"
-                        title="Remover sala"
-                      >
-                        <Trash size={12} />
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleDeleteSala(sala)}
+                          className="btn btn-xs btn-danger"
+                          title="Remover sala"
+                        >
+                          <Trash size={12} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}
@@ -523,33 +550,37 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
           )}
 
           <div className="grid gap-4">
-            {projeto.turmas.map((turma) => (
-              <div key={turma.id_turma} className="card">
-                <div className="card-content">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold">{turma.nome}</h3>
-                      <div className="flex gap-4 mt-2">
-                        <span className="badge badge-info">{turma.alunos} alunos</span>
-                        <span className="badge badge-info">{turma.duracao_min}min</span>
-                        {turma.esp_necessarias > 0 && (
-                          <span className="badge badge-warning">{turma.esp_necessarias} especiais</span>
-                        )}
+            {isLoadingOperation ? (
+              <SkeletonItemsList />
+            ) : (
+              projeto.turmas.map((turma) => (
+                <div key={turma.id_turma} className="card">
+                  <div className="card-content">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold">{turma.nome}</h3>
+                        <div className="flex gap-4 mt-2">
+                          <span className="badge badge-info">{turma.alunos} alunos</span>
+                          <span className="badge badge-info">{turma.duracao_min}min</span>
+                          {turma.esp_necessarias > 0 && (
+                            <span className="badge badge-warning">{turma.esp_necessarias} especiais</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleDeleteTurma(turma)}
-                        className="btn btn-xs btn-danger"
-                        title="Remover turma"
-                      >
-                        <Trash size={12} />
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleDeleteTurma(turma)}
+                          className="btn btn-xs btn-danger"
+                          title="Remover turma"
+                        >
+                          <Trash size={12} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}

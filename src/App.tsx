@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -13,6 +13,11 @@ interface AppContentProps {
 
 function AppContent({ activeTab }: AppContentProps) {
   const [selectedProjeto, setSelectedProjeto] = useState<ProjetoAlocacao | null>(null);
+
+  // Limpar projeto selecionado quando mudar de aba
+  useEffect(() => {
+    setSelectedProjeto(null);
+  }, [activeTab]);
 
   const renderContent = () => {
     // Se um projeto está selecionado, mostrar os detalhes

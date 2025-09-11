@@ -1,8 +1,16 @@
 import { useApp } from '../context/AppContext';
+import { useEffect } from 'react';
 import { Calendar, Target, Download, Eye, Clock } from 'phosphor-react';
+import { SkeletonResultados } from './Skeleton';
 
 export default function ResultadosView() {
-  const { state, dispatch } = useApp();
+  const { state, loadProjetos, loadResultados } = useApp();
+
+  // Carregar dados quando o componente monta
+  useEffect(() => {
+    loadProjetos();
+    loadResultados();
+  }, []); // SEM DEPENDÊNCIAS - roda apenas UMA VEZ
 
   const handleViewDetails = (resultado: any) => {
     // Aqui poderia abrir um modal com detalhes completos
@@ -47,7 +55,9 @@ export default function ResultadosView() {
       </div>
 
       {/* Lista de Resultados */}
-      {state.resultados_alocacao.length === 0 ? (
+      {state.loading ? (
+        <SkeletonResultados />
+      ) : state.resultados_alocacao.length === 0 ? (
         <div className="card">
           <div className="card-content text-center" style={{ padding: 'var(--spacing-8)' }}>
             <Calendar size={48} color="var(--text-secondary)" style={{ marginBottom: 'var(--spacing-4)' }} />

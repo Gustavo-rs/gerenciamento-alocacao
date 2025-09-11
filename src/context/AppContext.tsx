@@ -291,11 +291,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Carregar dados iniciais
-  useEffect(() => {
-    loadProjetos();
-    loadResultados();
-  }, []);
+  // Dados são carregados apenas quando necessário pelos componentes
 
   return (
     <AppContext.Provider value={{ 

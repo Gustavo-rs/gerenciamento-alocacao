@@ -1,4 +1,5 @@
 import { useApp } from '../context/AppContext';
+import { useEffect } from 'react';
 import { 
   Buildings, 
   Users, 
@@ -11,9 +12,27 @@ import {
   Clock,
   X
 } from 'phosphor-react';
+import { SkeletonDashboardStats, SkeletonDashboardSections, SkeletonDashboardExport } from './Skeleton';
 
 export default function Dashboard() {
-  const { state } = useApp();
+  const { state, loadProjetos, loadResultados } = useApp();
+
+  // Carregar dados quando o componente monta
+  useEffect(() => {
+    loadProjetos();
+    loadResultados();
+  }, []); // SEM DEPENDÊNCIAS - roda apenas UMA VEZ
+
+  // Mostrar skeleton durante loading
+  if (state.loading) {
+    return (
+      <div className="grid gap-6">
+        <SkeletonDashboardStats />
+        <SkeletonDashboardSections />
+        <SkeletonDashboardExport />
+      </div>
+    );
+  }
 
   // Calcular estatísticas agregadas de todos os projetos
   const todasSalas = state.projetos.flatMap(p => p.salas);
@@ -21,9 +40,9 @@ export default function Dashboard() {
 
   const stats = {
     totalAlocacoes: state.projetos.length,
-    alocacoesAtivas: state.projetos.filter(p => p.status === 'configuracao' || p.status === 'pronto').length,
+    alocacoesAtivas: state.projetos.filter(p => p.status === 'CONFIGURACAO' || p.status === 'PRONTO').length,
     totalSalas: todasSalas.length,
-    salasAtivas: todasSalas.filter(s => s.status === 'ativa').length,
+    salasAtivas: todasSalas.filter(s => s.status === 'ATIVA').length,
     totalTurmas: todasTurmas.length,
     totalAlunos: todasTurmas.reduce((acc, t) => acc + t.alunos, 0),
     capacidadeTotal: todasSalas.reduce((acc, s) => acc + s.capacidade_total, 0),

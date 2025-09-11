@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import type { ProjetoAlocacao, FormProjetoAlocacao } from '../types';
 import { Plus, FolderOpen, Eye, PencilSimple, Trash, FloppyDisk, X, CheckCircle, Clock, Gear } from 'phosphor-react';
-import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
+import { SkeletonProjetosList } from './Skeleton';
 
 interface ProjetosManagerProps {
   onEditProjeto: (projeto: ProjetoAlocacao | null) => void;
@@ -15,6 +15,11 @@ export default function ProjetosManager({ onEditProjeto, onShowForm, onSelectPro
   const { state, createProjeto, updateProjeto, deleteProjeto, loadProjetos } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [editingProjeto, setEditingProjeto] = useState<ProjetoAlocacao | null>(null);
+
+  // Carregar dados quando o componente monta
+  useEffect(() => {
+    loadProjetos();
+  }, []); // SEM DEPENDÊNCIAS - roda apenas UMA VEZ
   
   const [formData, setFormData] = useState<FormProjetoAlocacao>({
     nome: '',
@@ -179,7 +184,7 @@ export default function ProjetosManager({ onEditProjeto, onShowForm, onSelectPro
       {/* Lista de Projetos */}
       <div className="grid gap-4">
         {state.loading ? (
-          <LoadingSpinner text="Carregando projetos..." />
+          <SkeletonProjetosList />
         ) : state.error ? (
           <ErrorMessage 
             message={state.error} 
