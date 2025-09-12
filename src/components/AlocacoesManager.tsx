@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Clock, Users } from 'phosphor-react';
-import { useApp } from '../context/AppContext';
+import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Users } from 'phosphor-react';
 import type { Sala, FormSala, Horario, FormHorario, DiaSemana, Periodo, AlocacaoPrincipal, Turma, FormTurma } from '../types';
 
 // Labels para exibição
@@ -29,7 +28,6 @@ interface AlocacoesManagerProps {
 }
 
 export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerProps) {
-  const { salas } = useApp(); // Usar salas do contexto
   const [alocacoes, setAlocacoes] = useState<AlocacaoPrincipal[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -81,17 +79,31 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       
       if (data.success) {
         // Converter formato do backend para frontend
-        const alocacoesConvertidas = data.data.map((item: any) => ({
+        const alocacoesConvertidas = data.data.map((item: {
+          id: string;
+          nome: string;
+          descricao: string;
+          salas?: Array<{ sala: Sala }>;
+          horarios?: Array<{
+            id: string;
+            alocacao_id: string;
+            dia_semana: DiaSemana;
+            periodo: Periodo;
+            turmas?: Array<{ turma: Turma }>;
+            created_at: string;
+          }>;
+          created_at: string;
+        }) => ({
           id: item.id,
           nome: item.nome,
           descricao: item.descricao,
-          salas: item.salas?.map((as: any) => as.sala) || [],
-          horarios: item.horarios?.map((h: any) => ({
+          salas: item.salas?.map((as) => as.sala) || [],
+          horarios: item.horarios?.map((h) => ({
             id: h.id,
             alocacao_id: h.alocacao_id,
             dia_semana: h.dia_semana,
             periodo: h.periodo,
-            turmas: h.turmas?.map((ht: any) => ht.turma) || [],
+            turmas: h.turmas?.map((ht) => ht.turma) || [],
             created_at: h.created_at
           })) || [],
           created_at: item.created_at
@@ -187,30 +199,6 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     }
   };
 
-  const handleAddSala = async (alocacao: AlocacaoPrincipal, sala: Sala) => {
-    setLoading(true);
-    try {
-      const response = await fetch(`http://localhost:3001/api/alocacoes/${alocacao.id}/salas`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sala_id: sala.id })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        await loadAlocacoes();
-        alert('Sala adicionada com sucesso!');
-      } else {
-        alert(data.error || 'Erro ao adicionar sala');
-      }
-    } catch (error) {
-      console.error('Erro ao adicionar sala:', error);
-      alert('Erro ao adicionar sala');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleRemoveSala = async (alocacao: AlocacaoPrincipal, sala: Sala) => {
     if (window.confirm(`Remover ${sala.nome} desta alocação?`)) {
@@ -329,30 +317,6 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     }
   };
 
-  const handleRemoveHorario = async (horario: Horario) => {
-    if (window.confirm(`Remover horário ${diasLabels[horario.dia_semana]} ${periodosLabels[horario.periodo]}?`)) {
-      setLoading(true);
-      try {
-        const response = await fetch(`http://localhost:3001/api/horarios/${horario.id}`, {
-          method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          await loadAlocacoes();
-          alert('Horário removido com sucesso!');
-        } else {
-          alert(data.error || 'Erro ao remover horário');
-        }
-      } catch (error) {
-        console.error('Erro ao remover horário:', error);
-        alert('Erro ao remover horário');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
 
   // Funções para gerenciar turmas nos horários
   const handleCreateTurma = async (horarioId: string) => {
@@ -827,42 +791,6 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                         </div>
                       </div>
                     )}
-
-                    {/* Adicionar Salas Existentes (opcional) */}
-                    {salas && salas.length > 0 && salas.filter(sala => !alocacao.salas.find(s => s.id === sala.id)).length > 0 && (
-                      <div className="border-t pt-4 mt-4">
-                        <div className="mb-3">
-                          <h5 className="font-medium text-gray-700 mb-1">Salas Existentes Disponíveis</h5>
-                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                            Adicione salas já criadas anteriormente
-                          </p>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          {salas
-                            .filter(sala => !alocacao.salas.find(s => s.id === sala.id))
-                            .map(sala => (
-                              <div key={sala.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 p-3 rounded-lg">
-                                <div>
-                                  <span className="font-medium text-sm">{sala.nome}</span>
-                                  <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                    {sala.localizacao} • {sala.capacidade_total} lugares
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => handleAddSala(alocacao, sala)}
-                                  className="btn btn-xs btn-outline-primary"
-                                  disabled={loading}
-                                  title="Adicionar sala existente"
-                                >
-                                  <Plus size={12} style={{ marginRight: '4px' }} />
-                                  Adicionar
-                                </button>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Horários da Alocação */}
@@ -915,48 +843,56 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                     <div style={{ marginBottom: 'var(--spacing-3)' }}>
                                       <div className="grid gap-2">
                                         {horario.turmas.map(turma => (
-                                          <div key={turma.id} className="flex items-center justify-between" style={{ backgroundColor: '#f8f9fa', padding: 'var(--spacing-2)', borderRadius: '4px' }}>
-                                            <div>
-                                              <span className="font-medium text-sm">{turma.nome}</span>
-                                              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                                                {turma.alunos} alunos • {turma.duracao_min}min
-                                                {turma.esp_necessarias > 0 && ` • ${turma.esp_necessarias} esp.`}
-                                              </div>
-                                            </div>
+                                           <div key={turma.id} className="flex items-center justify-between" style={{ backgroundColor: '#f8f9fa', padding: 'var(--spacing-3)', borderRadius: '4px' }}>
+                                             <div style={{ flex: 1 }}>
+                                               <div className="flex items-center" style={{ gap: 'var(--spacing-2)', marginBottom: 'var(--spacing-2)' }}>
+                                                 <span className="font-semibold text-sm">{turma.nome}</span>
+                                               </div>
+                                               
+                                               <div className="flex" style={{ gap: 'var(--spacing-2)', flexWrap: 'wrap' }}>
+                                                 <span className="badge badge-info">
+                                                   {turma.alunos} alunos
+                                                 </span>
+                                                 {turma.duracao_min > 0 && (
+                                                   <span className="badge badge-success">
+                                                     {turma.duracao_min}min
+                                                   </span>
+                                                 )}
+                                                 {turma.esp_necessarias > 0 && (
+                                                   <span className="badge badge-warning">
+                                                     {turma.esp_necessarias} especiais
+                                                   </span>
+                                                 )}
+                                               </div>
+                                             </div>
+                                             <div>
                                             <button
                                               onClick={() => handleRemoveTurma(horario, turma)}
                                               className="btn btn-xs btn-danger"
                                               disabled={loading}
                                               title="Remover turma"
                                             >
-                                              <Trash size={12} />
+                                              <Trash size={12} style={{ margin: '8px' }} />
                                             </button>
+                                            </div>
                                           </div>
                                         ))}
                                       </div>
                                     </div>
                                   )}
                                   
-                                  {/* Botão para adicionar turma */}
-                                  <button
-                                    onClick={() => setShowTurmaForm(horario.id)}
-                                    className="btn btn-xs btn-secondary"
-                                    disabled={loading}
-                                  >
-                                    <Users size={12} style={{ marginRight: '4px' }} />
-                                    Adicionar Turma
-                                  </button>
+                                   {/* Botão para adicionar turma */}
+                                   <div className="pt-3 border-t border-gray-200 mt-3">
+                                     <button
+                                       onClick={() => setShowTurmaForm(horario.id)}
+                                       className="btn btn-sm btn-outline-primary w-full flex items-center justify-center gap-2"
+                                       disabled={loading}
+                                     >
+                                       <Users size={16} />
+                                       Adicionar Nova Turma
+                                     </button>
+                                   </div>
                                 </div>
-                                
-                                <button
-                                  onClick={() => handleRemoveHorario(horario)}
-                                  className="btn btn-sm btn-danger"
-                                  disabled={loading}
-                                  title="Remover horário"
-                                  style={{ marginLeft: 'var(--spacing-3)' }}
-                                >
-                                  <Trash size={14} />
-                                </button>
                               </div>
                             </div>
                           </div>
