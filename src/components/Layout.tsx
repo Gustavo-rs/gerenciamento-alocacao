@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { ChartBar, FolderOpen, Calendar, Target } from 'phosphor-react';
+import { ChartBar, FolderOpen, Calendar, Target, Buildings } from 'phosphor-react';
 
 interface LayoutProps {
   children: (activeTab: string) => ReactNode;
@@ -11,7 +11,8 @@ export default function Layout({ children }: LayoutProps) {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: ChartBar },
-    { id: 'projetos', label: 'Alocações', icon: FolderOpen },
+    { id: 'alocacoes', label: 'Alocações', icon: Buildings },
+    { id: 'projetos', label: 'Projetos (Antigo)', icon: FolderOpen },
     { id: 'resultados', label: 'Resultados', icon: Calendar },
   ];
 

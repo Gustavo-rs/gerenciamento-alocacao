@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import ProjetoDetalhes from './components/ProjetoDetalhes';
 import ProjetosManager from './components/ProjetosManager';
 import ResultadosView from './components/ResultadosView';
+import AlocacoesManager from './components/AlocacoesManager';
 import type { ProjetoAlocacao } from './types';
 
 interface AppContentProps {
@@ -30,25 +31,28 @@ function AppContent({ activeTab }: AppContentProps) {
       );
     }
 
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard />;
-      
-      case 'projetos':
-        return (
-          <ProjetosManager 
-            onEditProjeto={() => {}}
-            onShowForm={() => {}}
-            onSelectProjeto={setSelectedProjeto}
-          />
-        );
-      
-      case 'resultados':
-        return <ResultadosView />;
-      
-      default:
-        return <Dashboard />;
-    }
+     switch (activeTab) {
+       case 'dashboard':
+         return <Dashboard />;
+       
+       case 'alocacoes':
+         return <AlocacoesManager />;
+       
+       case 'projetos':
+         return (
+           <ProjetosManager 
+             onEditProjeto={() => {}}
+             onShowForm={() => {}}
+             onSelectProjeto={setSelectedProjeto}
+           />
+         );
+       
+       case 'resultados':
+         return <ResultadosView />;
+       
+       default:
+         return <Dashboard />;
+     }
   };
 
   return renderContent();
