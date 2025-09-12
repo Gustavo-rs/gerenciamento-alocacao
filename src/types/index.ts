@@ -48,6 +48,34 @@ export interface FormTurma {
   esp_necessarias: number;
 }
 
+// Tipos para as sub-alocações (horários)
+export type DiaSemana = 'SEGUNDA' | 'TERCA' | 'QUARTA' | 'QUINTA' | 'SEXTA' | 'SABADO';
+export type Periodo = 'MATUTINO' | 'VESPERTINO' | 'NOTURNO';
+
+export interface Horario {
+  id: string;
+  alocacao_id: string;
+  dia_semana: DiaSemana;
+  periodo: Periodo;
+  turmas: Turma[];
+  created_at?: string;
+}
+
+export interface FormHorario {
+  dia_semana: DiaSemana;
+  periodo: Periodo;
+}
+
+// Alocação principal atualizada
+export interface AlocacaoPrincipal {
+  id: string;
+  nome: string;
+  descricao: string;
+  salas: Sala[];
+  horarios: Horario[];
+  created_at?: string;
+}
+
 export interface ProjetoAlocacao {
   id?: string; // ID do banco
   id_projeto: string;

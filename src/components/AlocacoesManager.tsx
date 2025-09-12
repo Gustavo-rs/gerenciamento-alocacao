@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings } from 'phosphor-react';
+import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Clock, Users } from 'phosphor-react';
 import { useApp } from '../context/AppContext';
-import type { Sala, FormSala } from '../types';
+import type { Sala, FormSala, Horario, FormHorario, DiaSemana, Periodo, AlocacaoPrincipal, Turma, FormTurma } from '../types';
 
-// Tipos para alocação simples
-interface AlocacaoSimples {
-  id: string;
-  nome: string;
-  descricao: string;
-  salas: Sala[];
-  created_at?: string;
-}
+// Labels para exibição
+const diasLabels: Record<DiaSemana, string> = {
+  'SEGUNDA': 'Segunda-feira',
+  'TERCA': 'Terça-feira',
+  'QUARTA': 'Quarta-feira',
+  'QUINTA': 'Quinta-feira',
+  'SEXTA': 'Sexta-feira',
+  'SABADO': 'Sábado'
+};
+
+const periodosLabels: Record<Periodo, string> = {
+  'MATUTINO': 'Matutino',
+  'VESPERTINO': 'Vespertino',
+  'NOTURNO': 'Noturno'
+};
 
 interface FormAlocacao {
   nome: string;
@@ -18,15 +25,15 @@ interface FormAlocacao {
 }
 
 interface AlocacoesManagerProps {
-  onSelectAlocacao?: (alocacao: AlocacaoSimples) => void;
+  onSelectAlocacao?: (alocacao: AlocacaoPrincipal) => void;
 }
 
 export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerProps) {
   const { salas } = useApp(); // Usar salas do contexto
-  const [alocacoes, setAlocacoes] = useState<AlocacaoSimples[]>([]);
+  const [alocacoes, setAlocacoes] = useState<AlocacaoPrincipal[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [editingAlocacao, setEditingAlocacao] = useState<AlocacaoSimples | null>(null);
+  const [editingAlocacao, setEditingAlocacao] = useState<AlocacaoPrincipal | null>(null);
   
   // Formulário de alocação
   const [formData, setFormData] = useState<FormAlocacao>({
@@ -43,6 +50,22 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     status: 'ATIVA',
     cadeiras_moveis: 0,
     cadeiras_especiais: 0,
+  });
+
+  // Estados para horários (sub-alocações)
+  const [showHorarioForm, setShowHorarioForm] = useState<string | null>(null); // ID da alocação
+  const [horarioForm, setHorarioForm] = useState<FormHorario>({
+    dia_semana: 'SEGUNDA',
+    periodo: 'MATUTINO'
+  });
+
+  // Estados para turmas
+  const [showTurmaForm, setShowTurmaForm] = useState<string | null>(null); // ID do horário
+  const [turmaForm, setTurmaForm] = useState<FormTurma>({
+    nome: '',
+    alunos: 0,
+    duracao_min: 0,
+    esp_necessarias: 0
   });
 
   // Carregar alocações da API
@@ -63,6 +86,14 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           nome: item.nome,
           descricao: item.descricao,
           salas: item.salas?.map((as: any) => as.sala) || [],
+          horarios: item.horarios?.map((h: any) => ({
+            id: h.id,
+            alocacao_id: h.alocacao_id,
+            dia_semana: h.dia_semana,
+            periodo: h.periodo,
+            turmas: h.turmas?.map((ht: any) => ht.turma) || [],
+            created_at: h.created_at
+          })) || [],
           created_at: item.created_at
         }));
         
@@ -122,7 +153,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     }
   };
 
-  const handleEdit = (alocacao: AlocacaoSimples) => {
+  const handleEdit = (alocacao: AlocacaoPrincipal) => {
     setEditingAlocacao(alocacao);
     setFormData({
       nome: alocacao.nome,
@@ -131,7 +162,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     setShowForm(true);
   };
 
-  const handleDelete = async (alocacao: AlocacaoSimples) => {
+  const handleDelete = async (alocacao: AlocacaoPrincipal) => {
     if (window.confirm('Tem certeza que deseja excluir esta alocação?')) {
       setLoading(true);
       try {
@@ -156,7 +187,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     }
   };
 
-  const handleAddSala = async (alocacao: AlocacaoSimples, sala: Sala) => {
+  const handleAddSala = async (alocacao: AlocacaoPrincipal, sala: Sala) => {
     setLoading(true);
     try {
       const response = await fetch(`http://localhost:3001/api/alocacoes/${alocacao.id}/salas`, {
@@ -181,7 +212,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     }
   };
 
-  const handleRemoveSala = async (alocacao: AlocacaoSimples, sala: Sala) => {
+  const handleRemoveSala = async (alocacao: AlocacaoPrincipal, sala: Sala) => {
     if (window.confirm(`Remover ${sala.nome} desta alocação?`)) {
       setLoading(true);
       try {
@@ -267,6 +298,138 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       alert('Erro ao criar sala');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Funções para gerenciar horários
+  const handleCreateHorario = async (alocacaoId: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:3001/api/alocacoes/${alocacaoId}/horarios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(horarioForm)
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadAlocacoes();
+        setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+        setShowHorarioForm(null);
+        alert('Horário criado com sucesso!');
+      } else {
+        alert(data.error || 'Erro ao criar horário');
+      }
+    } catch (error) {
+      console.error('Erro ao criar horário:', error);
+      alert('Erro ao criar horário');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveHorario = async (horario: Horario) => {
+    if (window.confirm(`Remover horário ${diasLabels[horario.dia_semana]} ${periodosLabels[horario.periodo]}?`)) {
+      setLoading(true);
+      try {
+        const response = await fetch(`http://localhost:3001/api/horarios/${horario.id}`, {
+          method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          await loadAlocacoes();
+          alert('Horário removido com sucesso!');
+        } else {
+          alert(data.error || 'Erro ao remover horário');
+        }
+      } catch (error) {
+        console.error('Erro ao remover horário:', error);
+        alert('Erro ao remover horário');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Funções para gerenciar turmas nos horários
+  const handleCreateTurma = async (horarioId: string) => {
+    if (!turmaForm.nome || turmaForm.alunos <= 0) {
+      alert('Preencha o nome e número de alunos da turma');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Gerar ID único para a turma
+      const id_turma = `T${Date.now()}`;
+      
+      // 1. Criar a turma primeiro
+      const turmaResponse = await fetch('http://localhost:3001/api/turmas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...turmaForm,
+          id_turma: id_turma
+        })
+      });
+
+      const turmaData = await turmaResponse.json();
+      
+      if (!turmaData.success) {
+        alert(turmaData.error || 'Erro ao criar turma');
+        return;
+      }
+
+      // 2. Adicionar a turma ao horário
+      const horarioResponse = await fetch(`http://localhost:3001/api/horarios/${horarioId}/turmas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turma_id: turmaData.data.id })
+      });
+
+      const horarioData = await horarioResponse.json();
+      
+      if (horarioData.success) {
+        await loadAlocacoes();
+        setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
+        setShowTurmaForm(null);
+        alert('Turma criada e adicionada ao horário com sucesso!');
+      } else {
+        alert(horarioData.error || 'Erro ao adicionar turma ao horário');
+      }
+    } catch (error) {
+      console.error('Erro ao criar turma:', error);
+      alert('Erro ao criar turma');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveTurma = async (horario: Horario, turma: Turma) => {
+    if (window.confirm(`Remover ${turma.nome} deste horário?`)) {
+      setLoading(true);
+      try {
+        const response = await fetch(`http://localhost:3001/api/horarios/${horario.id}/turmas/${turma.id}`, {
+          method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          await loadAlocacoes();
+          alert('Turma removida com sucesso!');
+        } else {
+          alert(data.error || 'Erro ao remover turma');
+        }
+      } catch (error) {
+        console.error('Erro ao remover turma:', error);
+        alert('Erro ao remover turma');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -414,6 +577,9 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                         <h3 className="text-xl font-bold text-gray-900">{alocacao.nome}</h3>
                         <span className="badge badge-info" style={{ marginLeft: 'var(--spacing-2)' }}>
                           {alocacao.salas.length} {alocacao.salas.length === 1 ? 'sala' : 'salas'}
+                        </span>
+                        <span className="badge badge-secondary" style={{ marginLeft: 'var(--spacing-2)' }}>
+                          {alocacao.horarios.length} {alocacao.horarios.length === 1 ? 'horário' : 'horários'}
                         </span>
                       </div>
                       
@@ -694,6 +860,272 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                 </button>
                               </div>
                             ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Horários da Alocação */}
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-semibold flex items-center" style={{ gap: 'var(--spacing-2)' }}>
+                        <Calendar size={18} />
+                        Horários da Alocação
+                      </h4>
+                      <button
+                        onClick={() => setShowHorarioForm(alocacao.id)}
+                        className="btn btn-sm btn-primary"
+                        disabled={loading}
+                        title="Adicionar novo horário"
+                      >
+                        <Plus size={14} style={{ marginRight: '6px' }} />
+                        Adicionar Horário
+                      </button>
+                    </div>
+                    
+                    {alocacao.horarios.length === 0 ? (
+                      <div className="text-center py-8 border-2 border-dashed rounded-lg" style={{ borderColor: 'var(--border-color)' }}>
+                        <Calendar size={32} color="var(--text-secondary)" style={{ marginBottom: '12px' }} />
+                        <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                          Nenhum horário definido
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          Adicione horários para organizar as turmas por dia e período
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3">
+                        {alocacao.horarios.map(horario => (
+                          <div key={horario.id} className="card">
+                            <div className="card-content" style={{ padding: 'var(--spacing-4)' }}>
+                              <div className="flex items-start justify-between">
+                                <div style={{ flex: 1 }}>
+                                  <div className="flex items-center" style={{ gap: 'var(--spacing-2)', marginBottom: 'var(--spacing-2)' }}>
+                                    <h5 className="font-semibold">{diasLabels[horario.dia_semana]}</h5>
+                                    <span className="badge badge-primary">
+                                      {periodosLabels[horario.periodo]}
+                                    </span>
+                                    <span className="badge badge-info">
+                                      {horario.turmas.length} {horario.turmas.length === 1 ? 'turma' : 'turmas'}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Turmas do Horário */}
+                                  {horario.turmas.length > 0 && (
+                                    <div style={{ marginBottom: 'var(--spacing-3)' }}>
+                                      <div className="grid gap-2">
+                                        {horario.turmas.map(turma => (
+                                          <div key={turma.id} className="flex items-center justify-between" style={{ backgroundColor: '#f8f9fa', padding: 'var(--spacing-2)', borderRadius: '4px' }}>
+                                            <div>
+                                              <span className="font-medium text-sm">{turma.nome}</span>
+                                              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                                {turma.alunos} alunos • {turma.duracao_min}min
+                                                {turma.esp_necessarias > 0 && ` • ${turma.esp_necessarias} esp.`}
+                                              </div>
+                                            </div>
+                                            <button
+                                              onClick={() => handleRemoveTurma(horario, turma)}
+                                              className="btn btn-xs btn-danger"
+                                              disabled={loading}
+                                              title="Remover turma"
+                                            >
+                                              <Trash size={12} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Botão para adicionar turma */}
+                                  <button
+                                    onClick={() => setShowTurmaForm(horario.id)}
+                                    className="btn btn-xs btn-secondary"
+                                    disabled={loading}
+                                  >
+                                    <Users size={12} style={{ marginRight: '4px' }} />
+                                    Adicionar Turma
+                                  </button>
+                                </div>
+                                
+                                <button
+                                  onClick={() => handleRemoveHorario(horario)}
+                                  className="btn btn-sm btn-danger"
+                                  disabled={loading}
+                                  title="Remover horário"
+                                  style={{ marginLeft: 'var(--spacing-3)' }}
+                                >
+                                  <Trash size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Formulário para adicionar horário */}
+                    {showHorarioForm === alocacao.id && (
+                      <div className="card" style={{ marginTop: 'var(--spacing-4)', border: '2px solid #10b981' }}>
+                        <div className="card-header" style={{ backgroundColor: '#ecfdf5', borderBottom: '1px solid #d1fae5' }}>
+                          <h5 className="card-title flex items-center" style={{ gap: 'var(--spacing-2)', color: '#047857', margin: 0 }}>
+                            <Calendar size={18} />
+                            Adicionar Novo Horário
+                          </h5>
+                        </div>
+                        
+                        <div className="card-content">
+                          <form className="form">
+                            <div className="form-row">
+                              <div className="form-group">
+                                <label className="label">Dia da Semana *</label>
+                                <select
+                                  value={horarioForm.dia_semana}
+                                  onChange={(e) => setHorarioForm(prev => ({ ...prev, dia_semana: e.target.value as DiaSemana }))}
+                                  className="input"
+                                  required
+                                  disabled={loading}
+                                >
+                                  <option value="SEGUNDA">Segunda-feira</option>
+                                  <option value="TERCA">Terça-feira</option>
+                                  <option value="QUARTA">Quarta-feira</option>
+                                  <option value="QUINTA">Quinta-feira</option>
+                                  <option value="SEXTA">Sexta-feira</option>
+                                  <option value="SABADO">Sábado</option>
+                                </select>
+                              </div>
+                              <div className="form-group">
+                                <label className="label">Período *</label>
+                                <select
+                                  value={horarioForm.periodo}
+                                  onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
+                                  className="input"
+                                  required
+                                  disabled={loading}
+                                >
+                                  <option value="MATUTINO">Matutino</option>
+                                  <option value="VESPERTINO">Vespertino</option>
+                                  <option value="NOTURNO">Noturno</option>
+                                </select>
+                              </div>
+                            </div>
+                            
+                            <div className="flex" style={{ gap: 'var(--spacing-3)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--border-color)' }}>
+                              <button 
+                                onClick={() => handleCreateHorario(alocacao.id)}
+                                className="btn btn-primary" 
+                                disabled={loading}
+                              >
+                                <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+                                {loading ? 'Criando...' : 'Criar Horário'}
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setShowHorarioForm(null);
+                                  setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+                                }}
+                                className="btn btn-secondary"
+                                disabled={loading}
+                              >
+                                <X size={16} style={{ marginRight: '6px' }} />
+                                Cancelar
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Formulário para adicionar turma */}
+                    {showTurmaForm && (
+                      <div className="card" style={{ marginTop: 'var(--spacing-4)', border: '2px solid #f59e0b' }}>
+                        <div className="card-header" style={{ backgroundColor: '#fffbeb', borderBottom: '1px solid #fed7aa' }}>
+                          <h5 className="card-title flex items-center" style={{ gap: 'var(--spacing-2)', color: '#92400e', margin: 0 }}>
+                            <Users size={18} />
+                            Adicionar Nova Turma
+                          </h5>
+                        </div>
+                        
+                        <div className="card-content">
+                          <form className="form">
+                            <div className="form-row">
+                              <div className="form-group">
+                                <label className="label">Nome da Turma *</label>
+                                <input
+                                  type="text"
+                                  value={turmaForm.nome}
+                                  onChange={(e) => setTurmaForm(prev => ({ ...prev, nome: e.target.value }))}
+                                  className="input"
+                                  placeholder="Ex: Engenharia Civil 3A"
+                                  required
+                                  disabled={loading}
+                                />
+                              </div>
+                              <div className="form-group">
+                                <label className="label">Número de Alunos *</label>
+                                <input
+                                  type="number"
+                                  value={turmaForm.alunos}
+                                  onChange={(e) => setTurmaForm(prev => ({ ...prev, alunos: Number(e.target.value) }))}
+                                  className="input"
+                                  min="1"
+                                  placeholder="30"
+                                  required
+                                  disabled={loading}
+                                />
+                              </div>
+                            </div>
+                            
+                            <div className="form-row">
+                              <div className="form-group">
+                                <label className="label">Duração (minutos)</label>
+                                <input
+                                  type="number"
+                                  value={turmaForm.duracao_min}
+                                  onChange={(e) => setTurmaForm(prev => ({ ...prev, duracao_min: Number(e.target.value) }))}
+                                  className="input"
+                                  min="0"
+                                  placeholder="60"
+                                  disabled={loading}
+                                />
+                              </div>
+                              <div className="form-group">
+                                <label className="label">Necessidades Especiais</label>
+                                <input
+                                  type="number"
+                                  value={turmaForm.esp_necessarias}
+                                  onChange={(e) => setTurmaForm(prev => ({ ...prev, esp_necessarias: Number(e.target.value) }))}
+                                  className="input"
+                                  min="0"
+                                  placeholder="0"
+                                  disabled={loading}
+                                />
+                                <small className="form-text">Alunos com necessidades especiais</small>
+                              </div>
+                            </div>
+                            
+                            <div className="flex" style={{ gap: 'var(--spacing-3)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--border-color)' }}>
+                              <button 
+                                onClick={() => handleCreateTurma(showTurmaForm)}
+                                className="btn btn-primary" 
+                                disabled={loading}
+                              >
+                                <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+                                {loading ? 'Criando...' : 'Criar Turma'}
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setShowTurmaForm(null);
+                                  setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
+                                }}
+                                className="btn btn-secondary"
+                                disabled={loading}
+                              >
+                                <X size={16} style={{ marginRight: '6px' }} />
+                                Cancelar
+                              </button>
+                            </div>
+                          </form>
                         </div>
                       </div>
                     )}
