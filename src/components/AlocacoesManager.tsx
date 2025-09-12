@@ -546,17 +546,18 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
 
                     {/* Formulário para adicionar nova sala */}
                     {showSalaForm === alocacao.id && (
-                      <div className="mt-4 border rounded-lg bg-blue-50 border-blue-200">
-                        <div className="border-b border-blue-200 px-4 py-3">
-                          <h5 className="font-semibold text-blue-900 flex items-center gap-2">
-                            <Plus size={16} />
-                            Criar Nova Sala
+                      <div className="card" style={{ marginTop: 'var(--spacing-4)', border: '2px solid #3b82f6' }}>
+                        <div className="card-header" style={{ backgroundColor: '#eff6ff', borderBottom: '1px solid #dbeafe' }}>
+                          <h5 className="card-title flex items-center" style={{ gap: 'var(--spacing-2)', color: '#1e40af', margin: 0 }}>
+                            <Plus size={18} />
+                            Adicionar Nova Sala
                           </h5>
                         </div>
                         
-                        <div className="p-4">
-                          <div className="grid gap-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="card-content">
+                          <form className="form">
+                            {/* Linha 1: Nome e Capacidade */}
+                            <div className="form-row">
                               <div className="form-group">
                                 <label className="label">Nome da Sala *</label>
                                 <input
@@ -564,7 +565,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                   value={salaForm.nome}
                                   onChange={(e) => setSalaForm(prev => ({ ...prev, nome: e.target.value }))}
                                   className="input"
-                                  placeholder="Ex: Sala A1, Lab Informática"
+                                  placeholder="Ex: Sala A1, Laboratório"
                                   required
                                   disabled={loading}
                                 />
@@ -584,6 +585,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                               </div>
                             </div>
                             
+                            {/* Linha 2: Localização */}
                             <div className="form-group">
                               <label className="label">Localização</label>
                               <input
@@ -591,12 +593,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                 value={salaForm.localizacao}
                                 onChange={(e) => setSalaForm(prev => ({ ...prev, localizacao: e.target.value }))}
                                 className="input"
-                                placeholder="Ex: Bloco A - 2º andar, Prédio Central"
+                                placeholder="Ex: Bloco A - 2º andar"
                                 disabled={loading}
                               />
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Linha 3: Cadeiras Especiais e Móveis */}
+                            <div className="form-row">
                               <div className="form-group">
                                 <label className="label">Cadeiras Especiais</label>
                                 <input
@@ -608,9 +611,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                   placeholder="0"
                                   disabled={loading}
                                 />
-                                <span className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                  Para alunos com necessidades especiais
-                                </span>
+                                <small className="form-text">Para alunos com necessidades especiais</small>
                               </div>
                               <div className="form-group">
                                 <label className="label">Cadeiras Móveis</label>
@@ -623,13 +624,12 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                   placeholder="0"
                                   disabled={loading}
                                 />
-                                <span className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                  Cadeiras que podem ser remanejadas
-                                </span>
+                                <small className="form-text">Cadeiras que podem ser remanejadas</small>
                               </div>
                             </div>
                             
-                            <div className="flex gap-2">
+                            {/* Botões */}
+                            <div className="flex" style={{ gap: 'var(--spacing-3)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--border-color)' }}>
                               <button 
                                 onClick={() => handleCreateSala(alocacao.id)}
                                 className="btn btn-primary" 
@@ -657,7 +657,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                 Cancelar
                               </button>
                             </div>
-                          </div>
+                          </form>
                         </div>
                       </div>
                     )}
