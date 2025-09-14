@@ -5,7 +5,7 @@ export interface Sala {
   capacidade_total: number;
   localizacao: string;
   status: 'ATIVA' | 'INATIVA' | 'MANUTENCAO';
-  cadeiras_moveis: number;
+  cadeiras_moveis: boolean;
   cadeiras_especiais: number;
   created_at?: string;
   updated_at?: string;
@@ -37,7 +37,7 @@ export interface FormSala {
   capacidade_total: number;
   localizacao: string;
   status: 'ATIVA' | 'INATIVA' | 'MANUTENCAO';
-  cadeiras_moveis: number;
+  cadeiras_moveis: boolean;
   cadeiras_especiais: number;
 }
 

@@ -78,7 +78,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     capacidade_total: 0,
     localizacao: '',
     status: 'ATIVA',
-    cadeiras_moveis: 0,
+    cadeiras_moveis: false,
     cadeiras_especiais: 0,
   });
 
@@ -331,7 +331,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           capacidade_total: 0,
           localizacao: '',
           status: 'ATIVA',
-          cadeiras_moveis: 0,
+          cadeiras_moveis: false,
           cadeiras_especiais: 0,
         });
         setShowSalaModal(false);
@@ -821,9 +821,9 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                         {sala.cadeiras_especiais} especiais
                                       </span>
                                     )}
-                                    {sala.cadeiras_moveis > 0 && (
+                                    {sala.cadeiras_moveis && (
                                       <span className="badge badge-secondary">
-                                        {sala.cadeiras_moveis} móveis
+                                        Móveis
                                       </span>
                                     )}
                                     <span className={`badge ${sala.status === 'ATIVA' ? 'badge-success' : 'badge-warning'}`}>
@@ -1151,7 +1151,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
             capacidade_total: 0,
             localizacao: '',
             status: 'ATIVA',
-            cadeiras_moveis: 0,
+            cadeiras_moveis: false,
             cadeiras_especiais: 0,
           });
         }}
@@ -1223,17 +1223,16 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
               <small className="form-text">Para alunos com necessidades especiais</small>
             </div>
             <div className="form-group">
-              <label className="label">Cadeiras Móveis</label>
-              <input
-                type="number"
-                value={salaForm.cadeiras_moveis}
-                onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_moveis: Number(e.target.value) }))}
-                className="input"
-                min="0"
-                placeholder="0"
-                disabled={loading}
-              />
-              <small className="form-text">Cadeiras que podem ser remanejadas</small>
+              <label className="checkbox-container">
+                <input
+                  type="checkbox"
+                  checked={salaForm.cadeiras_moveis}
+                  onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_moveis: e.target.checked }))}
+                  disabled={loading}
+                />
+                <span className="label">Cadeiras Móveis</span>
+              </label>
+              <small className="form-text">Cadeiras podem ser emprestadas para outras salas</small>
             </div>
           </div>
           
@@ -1257,7 +1256,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                   capacidade_total: 0,
                   localizacao: '',
                   status: 'ATIVA',
-                  cadeiras_moveis: 0,
+                  cadeiras_moveis: false,
                   cadeiras_especiais: 0,
                 });
               }}
