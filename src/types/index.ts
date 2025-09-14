@@ -44,7 +44,6 @@ export interface FormSala {
 export interface FormTurma {
   nome: string;
   alunos: number;
-  duracao_min: number;
   esp_necessarias: number;
 }
 

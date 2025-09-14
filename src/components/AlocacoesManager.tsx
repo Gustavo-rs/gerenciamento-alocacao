@@ -76,7 +76,6 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
   const [turmaForm, setTurmaForm] = useState<FormTurma>({
     nome: '',
     alunos: 0,
-    duracao_min: 0,
     esp_necessarias: 0
   });
 
@@ -189,10 +188,25 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
   };
 
   const handleDelete = (alocacao: AlocacaoPrincipal) => {
+    // Contar elementos relacionados
+    const salasCount = alocacao.salas?.length || 0;
+    const horariosCount = alocacao.horarios?.length || 0;
+    const turmasCount = alocacao.horarios?.reduce((acc, h) => acc + (h.turmas?.length || 0), 0) || 0;
+
+    // Criar mensagem detalhada
+    let detalhes = [];
+    if (salasCount > 0) detalhes.push(`${salasCount} sala${salasCount > 1 ? 's' : ''} associada${salasCount > 1 ? 's' : ''}`);
+    if (horariosCount > 0) detalhes.push(`${horariosCount} horário${horariosCount > 1 ? 's' : ''}`);
+    if (turmasCount > 0) detalhes.push(`${turmasCount} turma${turmasCount > 1 ? 's' : ''} vinculada${turmasCount > 1 ? 's' : ''}`);
+
+    const mensagemDetalhada = detalhes.length > 0 
+      ? `Esta ação também removerá: ${detalhes.join(', ')}.`
+      : 'Esta alocação não possui elementos relacionados.';
+
     setConfirmModal({
       isOpen: true,
       title: 'Excluir Alocação',
-      message: `Tem certeza que deseja excluir a alocação "${alocacao.nome}"? Esta ação não pode ser desfeita.`,
+      message: `Tem certeza que deseja excluir a alocação "${alocacao.nome}"? ${mensagemDetalhada} Esta ação não pode ser desfeita.`,
       onConfirm: async () => {
         setConfirmModal({ ...confirmModal, isOpen: false });
         setLoading(true);
@@ -205,7 +219,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           
           if (data.success) {
             await loadAlocacoes();
-            toast.success('Sucesso!', 'Alocação excluída com sucesso!');
+            toast.success('Sucesso!', data.message || 'Alocação excluída com sucesso!');
           } else {
             toast.error('Erro', data.error || 'Erro ao excluir alocação');
           }
@@ -401,7 +415,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       
       if (horarioData.success) {
         await loadAlocacoes();
-        setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
+        setTurmaForm({ nome: '', alunos: 0, esp_necessarias: 0 });
         setShowTurmaModal(false);
         setSelectedHorarioId(null);
         toast.success('Sucesso!', 'Turma criada e adicionada ao horário com sucesso!');
@@ -783,11 +797,6 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                                  <span className="badge badge-info">
                                                    {turma.alunos} alunos
                                                  </span>
-                                                 {turma.duracao_min > 0 && (
-                                                   <span className="badge badge-success">
-                                                     {turma.duracao_min}min
-                                                   </span>
-                                                 )}
                                                  {turma.esp_necessarias > 0 && (
                                                    <span className="badge badge-warning">
                                                      {turma.esp_necessarias} especiais
@@ -927,7 +936,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         onClose={() => {
           setShowTurmaModal(false);
           setSelectedHorarioId(null);
-          setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
+          setTurmaForm({ nome: '', alunos: 0, esp_necessarias: 0 });
         }}
         title="Adicionar Nova Turma"
         size="lg"
@@ -967,32 +976,18 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
             </div>
           </div>
           
-          <div className="form-row">
-            <div className="form-group">
-              <label className="label">Duração (minutos)</label>
-              <input
-                type="number"
-                value={turmaForm.duracao_min}
-                onChange={(e) => setTurmaForm(prev => ({ ...prev, duracao_min: Number(e.target.value) }))}
-                className="input"
-                min="0"
-                placeholder="60"
-                disabled={loading}
-              />
-            </div>
-            <div className="form-group">
-              <label className="label">Necessidades Especiais</label>
-              <input
-                type="number"
-                value={turmaForm.esp_necessarias}
-                onChange={(e) => setTurmaForm(prev => ({ ...prev, esp_necessarias: Number(e.target.value) }))}
-                className="input"
-                min="0"
-                placeholder="0"
-                disabled={loading}
-              />
-              <small className="form-text">Alunos com necessidades especiais</small>
-            </div>
+          <div className="form-group">
+            <label className="label">Necessidades Especiais</label>
+            <input
+              type="number"
+              value={turmaForm.esp_necessarias}
+              onChange={(e) => setTurmaForm(prev => ({ ...prev, esp_necessarias: Number(e.target.value) }))}
+              className="input"
+              min="0"
+              placeholder="0"
+              disabled={loading}
+            />
+            <small className="form-text">Alunos com necessidades especiais</small>
           </div>
           
           <div className="flex gap-4 pt-6 border-t border-gray-200">
@@ -1006,11 +1001,11 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
             </button>
             <button 
               type="button"
-              onClick={() => {
-                setShowTurmaModal(false);
-                setSelectedHorarioId(null);
-                setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
-              }}
+        onClick={() => {
+          setShowTurmaModal(false);
+          setSelectedHorarioId(null);
+          setTurmaForm({ nome: '', alunos: 0, esp_necessarias: 0 });
+        }}
               className="btn btn-secondary"
               disabled={loading}
             >
