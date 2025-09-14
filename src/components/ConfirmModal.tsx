@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Warning, Check, X } from 'phosphor-react';
+import { Warning, Check, X, Brain } from 'phosphor-react';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -8,7 +8,7 @@ interface ConfirmModalProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  type?: 'danger' | 'warning' | 'info';
+  type?: 'danger' | 'warning' | 'info' | 'processing';
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -41,6 +41,13 @@ export default function ConfirmModal({
           confirmBg: '#d97706',
           confirmHover: '#b45309'
         };
+      case 'processing':
+        return {
+          bg: '#10b981',
+          border: '#059669',
+          confirmBg: '#059669',
+          confirmHover: '#047857'
+        };
       default:
         return {
           bg: '#3b82f6',
@@ -59,6 +66,8 @@ export default function ConfirmModal({
         return <X size={24} />;
       case 'info':
         return <Check size={24} />;
+      case 'processing':
+        return <Brain size={24} />;
       default:
         return <Warning size={24} />;
     }

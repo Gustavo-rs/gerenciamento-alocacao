@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Users } from 'phosphor-react';
+import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Users, Brain, ChartBar } from 'phosphor-react';
 import type { Sala, FormSala, Horario, FormHorario, DiaSemana, Periodo, AlocacaoPrincipal, Turma, FormTurma } from '../types';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import { useToast } from './Toast';
+import ResultadosAlocacaoInteligente from './ResultadosAlocacaoInteligente';
+import ProcessingModal from './ProcessingModal';
 
 // Labels para exibição
 const diasLabels: Record<DiaSemana, string> = {
@@ -51,11 +53,23 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
   const [selectedHorarioId, setSelectedHorarioId] = useState<string | null>(null);
 
   // Estados para confirmação
-  const [confirmModal, setConfirmModal] = useState({
+  const [confirmModal, setConfirmModal] = useState({ 
+    isOpen: false, 
+    title: '', 
+    message: '', 
+    type: 'danger' as 'danger' | 'processing',
+    confirmText: 'Excluir',
+    onConfirm: () => {} 
+  });
+  const [resultadosModal, setResultadosModal] = useState({
+    isOpen: false,
+    alocacaoId: '',
+    nomeAlocacao: ''
+  });
+  const [processingModal, setProcessingModal] = useState({
     isOpen: false,
     title: '',
-    message: '',
-    onConfirm: () => {}
+    message: ''
   });
 
   // Estados para formulários
@@ -461,6 +475,84 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     });
   };
 
+  const handleExecutarAlocacaoInteligente = async (alocacao: AlocacaoPrincipal) => {
+    // Verificar se há salas e horários com turmas
+    if (alocacao.salas.length === 0) {
+      toast.warning('Atenção', 'A alocação não possui salas associadas');
+      return;
+    }
+
+    const horariosComTurmas = alocacao.horarios?.filter(h => h.turmas?.length > 0) || [];
+    if (horariosComTurmas.length === 0) {
+      toast.warning('Atenção', 'A alocação não possui horários com turmas');
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Executar Alocação Inteligente',
+      message: `Deseja executar a alocação inteligente para "${alocacao.nome}"? Isso processará ${horariosComTurmas.length} horário${horariosComTurmas.length > 1 ? 's' : ''} com turmas e pode levar alguns minutos.`,
+      type: 'processing',
+      confirmText: 'Processar',
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        
+        // Mostrar modal de processamento (sem setLoading para não mostrar o spinner)
+        setProcessingModal({
+          isOpen: true,
+          title: 'Processando Alocação Inteligente',
+          message: `Analisando ${horariosComTurmas.length} horário${horariosComTurmas.length > 1 ? 's' : ''} e otimizando a distribuição das turmas...`
+        });
+        
+        try {
+          const response = await fetch(`http://localhost:3001/api/alocacao-inteligente/${alocacao.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              priorizar_capacidade: true,
+              priorizar_especiais: true,
+              priorizar_proximidade: true
+            })
+          });
+
+          const data = await response.json();
+          
+          // Fechar modal de processamento
+          setProcessingModal({ isOpen: false, title: '', message: '' });
+          
+          if (data.success) {
+            toast.success('Sucesso!', data.message || 'Alocação inteligente executada com sucesso!');
+            
+            // Mostrar detalhes do resultado
+            if (data.dados) {
+              const { horarios_processados, total_horarios, score_geral } = data.dados;
+              setTimeout(() => {
+                toast.info('Resultado', 
+                  `${horarios_processados}/${total_horarios} horários processados com score geral de ${score_geral}%`
+                );
+              }, 500);
+              
+              // Abrir modal de resultados após 1 segundo
+              setTimeout(() => {
+                setResultadosModal({
+                  isOpen: true,
+                  alocacaoId: alocacao.id,
+                  nomeAlocacao: alocacao.nome
+                });
+              }, 1000);
+            }
+          } else {
+            toast.error('Erro', data.error || 'Erro ao executar alocação inteligente');
+          }
+        } catch (error) {
+          console.error('Erro ao executar alocação inteligente:', error);
+          setProcessingModal({ isOpen: false, title: '', message: '' });
+          toast.error('Erro', 'Erro ao executar alocação inteligente');
+        }
+      }
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -619,6 +711,28 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                           <Eye size={14} />
                         </button>
                       )}
+                      <button
+                        onClick={() => handleExecutarAlocacaoInteligente(alocacao)}
+                        className="btn btn-sm btn-success"
+                        title="Executar alocação inteligente"
+                        disabled={loading}
+                        style={{ marginRight: 'var(--spacing-2)' }}
+                      >
+                        <Brain size={14} />
+                      </button>
+                      <button
+                        onClick={() => setResultadosModal({
+                          isOpen: true,
+                          alocacaoId: alocacao.id,
+                          nomeAlocacao: alocacao.nome
+                        })}
+                        className="btn btn-sm btn-info"
+                        title="Ver resultados da alocação inteligente"
+                        disabled={loading}
+                        style={{ marginRight: 'var(--spacing-2)' }}
+                      >
+                        <ChartBar size={14} />
+                      </button>
                       <div>
                         <button
                           onClick={() => handleEdit(alocacao)}
@@ -1152,10 +1266,25 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
         message={confirmModal.message}
-        type="danger"
-        confirmText="Excluir"
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+      />
+
+      {/* Modal de resultados da alocação inteligente */}
+      <ResultadosAlocacaoInteligente
+        alocacaoId={resultadosModal.alocacaoId}
+        nomeAlocacao={resultadosModal.nomeAlocacao}
+        isOpen={resultadosModal.isOpen}
+        onClose={() => setResultadosModal({ isOpen: false, alocacaoId: '', nomeAlocacao: '' })}
+      />
+
+      {/* Modal de processamento */}
+      <ProcessingModal
+        isOpen={processingModal.isOpen}
+        title={processingModal.title}
+        message={processingModal.message}
       />
     </div>
   );

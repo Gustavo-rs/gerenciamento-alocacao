@@ -33,7 +33,6 @@ export function Skeleton({
       }}
     />
   );
-}
 
 // Skeleton para cards do Dashboard
 export function SkeletonDashboardStats() {
