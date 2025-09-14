@@ -525,11 +525,21 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
             
             // Mostrar detalhes do resultado
             if (data.dados) {
-              const { horarios_processados, total_horarios, score_geral } = data.dados;
+              const { horarios_processados, total_horarios, score_geral, resultados_por_horario } = data.dados;
+              
+              // Contar turmas não alocadas
+              const totalTurmasNaoAlocadas = resultados_por_horario
+                ? resultados_por_horario.reduce((acc: number, r: any) => 
+                    acc + (r.python_result?.turmas_sobrando || 0), 0)
+                : 0;
+              
               setTimeout(() => {
-                toast.info('Resultado', 
-                  `${horarios_processados}/${total_horarios} horários processados com score geral de ${score_geral}%`
-                );
+                let mensagem = `${horarios_processados}/${total_horarios} horários processados com score geral de ${score_geral}%`;
+                if (totalTurmasNaoAlocadas > 0) {
+                  mensagem += `. ⚠️ ${totalTurmasNaoAlocadas} turma${totalTurmasNaoAlocadas > 1 ? 's' : ''} não pôde${totalTurmasNaoAlocadas > 1 ? 'ram' : ''} ser alocada${totalTurmasNaoAlocadas > 1 ? 's' : ''}`;
+                }
+                
+                toast.info('Resultado', mensagem);
               }, 500);
               
               // Abrir modal de resultados após 1 segundo

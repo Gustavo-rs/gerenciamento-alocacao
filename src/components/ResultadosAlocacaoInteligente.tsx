@@ -7,9 +7,13 @@ interface ResultadoHorario {
   id: string;
   score_otimizacao: number;
   acuracia_modelo: number;
+  total_turmas?: number;
+  turmas_alocadas?: number;
+  turmas_sobrando?: number;
   data_geracao: string;
   analise_detalhada: any;
   debug_info: any;
+  turmas_nao_alocadas?: any[];
   horario: {
     id: string;
     dia_semana: string;
@@ -69,7 +73,8 @@ export default function ResultadosAlocacaoInteligente({
         const resultadosFormatted = data.data.map((resultado: any) => ({
           ...resultado,
           analise_detalhada: JSON.parse(resultado.analise_detalhada || '{}'),
-          debug_info: JSON.parse(resultado.debug_info || '{}')
+          debug_info: JSON.parse(resultado.debug_info || '{}'),
+          turmas_nao_alocadas: JSON.parse(resultado.turmas_nao_alocadas || '[]')
         }));
         setResultados(resultadosFormatted);
       } else {
@@ -278,7 +283,21 @@ export default function ResultadosAlocacaoInteligente({
                                 {formatarDiaSemana(resultado.horario.dia_semana)} - {formatarPeriodo(resultado.horario.periodo)}
                               </h3>
                               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                                {resultado.alocacoes.length} alocações • Score: {resultado.score_otimizacao}%
+                                {/* Verificar se houve erro */}
+                                {resultado.analise_detalhada?.erro ? (
+                                  <span style={{ color: 'var(--danger-color)', fontWeight: '500' }}>
+                                    ❌ Falha no processamento • {resultado.total_turmas || 0} turmas não processadas
+                                  </span>
+                                ) : (
+                                  <>
+                                    {resultado.alocacoes.length} alocadas de {resultado.total_turmas || resultado.alocacoes.length} turmas • Score: {resultado.score_otimizacao}%
+                                    {resultado.turmas_sobrando && resultado.turmas_sobrando > 0 && (
+                                      <span style={{ color: 'var(--warning-color)', fontWeight: '500' }}>
+                                        {' • '}{resultado.turmas_sobrando} turma{resultado.turmas_sobrando > 1 ? 's' : ''} não alocada{resultado.turmas_sobrando > 1 ? 's' : ''}
+                                      </span>
+                                    )}
+                                  </>
+                                )}
                               </p>
                             </div>
                           </div>
@@ -291,27 +310,61 @@ export default function ResultadosAlocacaoInteligente({
 
                       {expandedHorario === resultado.id && (
                         <div className="card-content">
-                          {/* Estatísticas do Horário */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div className="bg-gray-50 p-3 rounded">
-                              <div className="text-sm font-semibold mb-1">Acurácia do Modelo</div>
-                              <div className="text-lg font-bold" style={{ color: 'var(--primary-color)' }}>
-                                {resultado.acuracia_modelo}%
+                          {/* Verificar se houve erro e mostrar detalhes */}
+                          {resultado.analise_detalhada?.erro ? (
+                            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
+                              <h4 className="font-semibold mb-2" style={{ color: 'var(--danger-color)' }}>
+                                ❌ Erro no Processamento
+                              </h4>
+                              <div className="text-sm mb-3" style={{ color: '#dc2626' }}>
+                                <strong>Detalhes:</strong> {resultado.analise_detalhada.detalhes}
                               </div>
-                            </div>
-                            <div className="bg-gray-50 p-3 rounded">
-                              <div className="text-sm font-semibold mb-1">Data de Geração</div>
-                              <div className="text-sm">
-                                {new Date(resultado.data_geracao).toLocaleString('pt-BR')}
+                              <div className="text-xs p-2 bg-red-100 rounded" style={{ color: '#991b1b' }}>
+                                <strong>Data:</strong> {new Date(resultado.data_geracao).toLocaleString('pt-BR')}
                               </div>
+                              
+                              {/* Mostrar turmas que não puderam ser processadas */}
+                              {resultado.turmas_nao_alocadas && resultado.turmas_nao_alocadas.length > 0 && (
+                                <div className="mt-3">
+                                  <div className="text-sm font-semibold mb-2" style={{ color: '#dc2626' }}>
+                                    Turmas Afetadas:
+                                  </div>
+                                  <div className="space-y-1">
+                                    {resultado.turmas_nao_alocadas.map((turma: any, index: number) => (
+                                      <div key={index} className="text-xs p-2 bg-red-100 rounded">
+                                        <strong>{turma.nome}</strong> - {turma.alunos} alunos, {turma.esp_necessarias} especiais
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
+                          ) : (
+                            <>
+                              {/* Estatísticas do Horário */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div className="bg-gray-50 p-3 rounded">
+                                  <div className="text-sm font-semibold mb-1">Acurácia do Modelo</div>
+                                  <div className="text-lg font-bold" style={{ color: 'var(--primary-color)' }}>
+                                    {resultado.acuracia_modelo}%
+                                  </div>
+                                </div>
+                                <div className="bg-gray-50 p-3 rounded">
+                                  <div className="text-sm font-semibold mb-1">Data de Geração</div>
+                                  <div className="text-sm">
+                                    {new Date(resultado.data_geracao).toLocaleString('pt-BR')}
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )}
 
-                          {/* Alocações */}
-                          <div className="mb-4">
-                            <h4 className="font-semibold mb-3">Alocações Geradas</h4>
-                            <div className="space-y-2">
-                              {resultado.alocacoes.map((alocacao) => (
+                          {/* Alocações - só mostrar se não houve erro */}
+                          {!resultado.analise_detalhada?.erro && resultado.alocacoes.length > 0 && (
+                            <div className="mb-4">
+                              <h4 className="font-semibold mb-3">Alocações Geradas</h4>
+                              <div className="space-y-2">
+                                {resultado.alocacoes.map((alocacao) => (
                                 <div key={alocacao.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                                   <div className="flex-1">
                                     <div className="font-semibold">{alocacao.turma.nome}</div>
@@ -337,9 +390,38 @@ export default function ResultadosAlocacaoInteligente({
                                     </div>
                                   </div>
                                 </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
+
+                          {/* Turmas Não Alocadas - só mostrar se não houve erro (pois já foi mostrado acima) */}
+                          {!resultado.analise_detalhada?.erro && resultado.turmas_nao_alocadas && resultado.turmas_nao_alocadas.length > 0 && (
+                            <div className="mb-4">
+                              <h4 className="font-semibold mb-3" style={{ color: 'var(--warning-color)' }}>
+                                ⚠️ Turmas Não Alocadas ({resultado.turmas_nao_alocadas.length})
+                              </h4>
+                              <div className="space-y-2">
+                                {resultado.turmas_nao_alocadas.map((turma: any, index: number) => (
+                                  <div key={index} className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <div className="font-semibold" style={{ color: 'var(--warning-color)' }}>
+                                          {turma.nome}
+                                        </div>
+                                        <div className="text-sm" style={{ color: '#92400e' }}>
+                                          {turma.alunos} alunos • {turma.esp_necessarias} cadeiras especiais
+                                        </div>
+                                      </div>
+                                      <div className="text-xs p-2 bg-yellow-100 rounded" style={{ color: '#92400e', maxWidth: '200px' }}>
+                                        <strong>Motivo:</strong> {turma.motivo}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Observações */}
                           {resultado.alocacoes.some(a => a.observacoes) && (

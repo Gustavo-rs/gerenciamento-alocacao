@@ -692,6 +692,30 @@ body {
   background-color: #eff6ff;
 }
 
+.bg-yellow-50 {
+  background-color: #fffbeb;
+}
+
+.bg-yellow-100 {
+  background-color: #fef3c7;
+}
+
+.border-yellow-200 {
+  border-color: #fde68a;
+}
+
+.bg-red-50 {
+  background-color: #fef2f2;
+}
+
+.bg-red-100 {
+  background-color: #fee2e2;
+}
+
+.border-red-200 {
+  border-color: #fecaca;
+}
+
 /* Media queries para responsividade */
 @media (min-width: 768px) {
   .md\\:grid-cols-2 {
