@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Brain, Clock, Users, Buildings, TrendUp, Eye, X } from 'phosphor-react';
+import { useState, useEffect } from 'react';
+import { Brain, Clock, Users, Buildings, TrendUp, Eye, X, Warning, Student, Wheelchair } from 'phosphor-react';
 import { useToast } from './Toast';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -323,7 +323,6 @@ export default function ResultadosAlocacaoInteligente({
                                 <strong>Data:</strong> {new Date(resultado.data_geracao).toLocaleString('pt-BR')}
                               </div>
                               
-                              {/* Mostrar turmas que não puderam ser processadas */}
                               {resultado.turmas_nao_alocadas && resultado.turmas_nao_alocadas.length > 0 && (
                                 <div className="mt-3">
                                   <div className="text-sm font-semibold mb-2" style={{ color: '#dc2626' }}>
@@ -397,24 +396,40 @@ export default function ResultadosAlocacaoInteligente({
 
                           {/* Turmas Não Alocadas - só mostrar se não houve erro (pois já foi mostrado acima) */}
                           {!resultado.analise_detalhada?.erro && resultado.turmas_nao_alocadas && resultado.turmas_nao_alocadas.length > 0 && (
-                            <div className="mb-4">
-                              <h4 className="font-semibold mb-3" style={{ color: 'var(--warning-color)' }}>
-                                ⚠️ Turmas Não Alocadas ({resultado.turmas_nao_alocadas.length})
-                              </h4>
-                              <div className="space-y-2">
+                            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg">
+                              <div className="flex items-center gap-3 mb-4 p-3 bg-amber-100 border border-amber-300 rounded-lg">
+                                <Warning size={20} weight="fill" style={{ color: '#d97706',marginLeft: '10px' }} />
+                                <h4 className="font-semibold m-0" style={{ color: '#d97706', padding: '10px' }}>
+                                  Turmas Não Alocadas ({resultado.turmas_nao_alocadas.length})
+                                </h4>
+                              </div>
+                              <div className="space-y-4 px-2">
                                 {resultado.turmas_nao_alocadas.map((turma: any, index: number) => (
-                                  <div key={index} className="p-3 bg-yellow-50 border border-yellow-200 rounded">
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <div className="font-semibold" style={{ color: 'var(--warning-color)' }}>
-                                          {turma.nome}
+                                  <div key={index} className="p-5 bg-white border border-amber-200 rounded-lg shadow-sm">
+                                    <div className="flex items-start justify-between gap-6">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-3 mb-3">
+                                          <Users size={18} style={{ color: '#d97706' }} />
+                                          <div className="font-semibold text-base" style={{ color: '#92400e' }}>
+                                            {turma.nome}
+                                          </div>
                                         </div>
-                                        <div className="text-sm" style={{ color: '#92400e' }}>
-                                          {turma.alunos} alunos • {turma.esp_necessarias} cadeiras especiais
+                                        <div className="flex items-center gap-6 ml-6" style={{ color: '#92400e' }}>
+                                          <span className="flex items-center gap-2">
+                                            <Student size={16} />
+                                            <span className="font-medium">{turma.alunos} alunos</span>
+                                          </span>
+                                          <span className="flex items-center gap-2">
+                                            <Wheelchair size={16} />
+                                            <span className="font-medium">{turma.esp_necessarias} cadeiras especiais</span>
+                                          </span>
                                         </div>
                                       </div>
-                                      <div className="text-xs p-2 bg-yellow-100 rounded" style={{ color: '#92400e', maxWidth: '200px' }}>
-                                        <strong>Motivo:</strong> {turma.motivo}
+                                      <div className="flex-shrink-0 max-w-sm">
+                                        <div className="p-4 bg-amber-100 border border-amber-300 rounded-lg" style={{ color: '#92400e', borderRadius: '10px', padding: '10px' }}>
+                                          <div className="font-semibold mb-2 text-sm" style={{ color: '#d97706' }}>Motivo:</div>
+                                          <div className="text-sm leading-relaxed">{turma.motivo}</div>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
