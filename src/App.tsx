@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
+import { ToastProvider } from './components/Toast';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import ProjetoDetalhes from './components/ProjetoDetalhes';
 import ProjetosManager from './components/ProjetosManager';
 import ResultadosView from './components/ResultadosView';
 import AlocacoesManager from './components/AlocacoesManager';
+import SalasManager from './components/SalasManager';
 import type { ProjetoAlocacao } from './types';
 
 interface AppContentProps {
@@ -38,6 +40,9 @@ function AppContent({ activeTab }: AppContentProps) {
        case 'alocacoes':
          return <AlocacoesManager />;
        
+       case 'salas':
+         return <SalasManager />;
+       
        case 'projetos':
          return (
            <ProjetosManager 
@@ -60,11 +65,13 @@ function AppContent({ activeTab }: AppContentProps) {
 
 function App() {
   return (
-    <AppProvider>
-      <Layout>
-        {(activeTab) => <AppContent activeTab={activeTab} />}
-      </Layout>
-    </AppProvider>
+    <ToastProvider>
+      <AppProvider>
+        <Layout>
+          {(activeTab) => <AppContent activeTab={activeTab} />}
+        </Layout>
+      </AppProvider>
+    </ToastProvider>
   );
 }
 

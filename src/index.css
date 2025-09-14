@@ -5,6 +5,18 @@
   box-sizing: border-box;
 }
 
+/* Animações para Toast */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 :root {
   --primary-color: #3b82f6;
   --primary-dark: #2563eb;

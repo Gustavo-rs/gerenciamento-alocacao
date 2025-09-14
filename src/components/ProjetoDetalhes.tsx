@@ -17,6 +17,7 @@ import {
   Target,
   Play
 } from 'phosphor-react';
+import Modal from './Modal';
 import { SkeletonProjetoHeader, SkeletonItemsList, SkeletonForm } from './Skeleton';
 
 interface ProjetoDetalhesProps {
@@ -39,15 +40,6 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
   const [isLoadingOperation, setIsLoadingOperation] = useState(false);
   const [isExecutingAllocation, setIsExecutingAllocation] = useState(false);
 
-  // Formulário de Sala
-  const [salaForm, setSalaForm] = useState<FormSala>({
-    nome: '',
-    capacidade_total: 0,
-    localizacao: '',
-    status: 'ATIVA',
-    cadeiras_moveis: 0,
-    cadeiras_especiais: 0,
-  });
 
   // Formulário de Turma
   const [turmaForm, setTurmaForm] = useState<FormTurma>({
@@ -62,7 +54,7 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
     setProjeto(projetoProp);
   }, [projetoProp]);
 
-  const handleAddSala = async () => {
+  const handleAddSala = async (salaData: any) => {
     if (!projeto.id) {
       alert('Erro: ID do projeto não encontrado.');
       return;
@@ -72,8 +64,8 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
     
     const novaSala = {
       id_sala: `sala_${Date.now()}`,
-      ...salaForm,
-      status: salaForm.status.toUpperCase(),
+      ...salaData,
+      status: salaData.status.toUpperCase(),
     };
 
     const projetoAtualizado = await addSalaToProjeto(projeto.id, novaSala);
@@ -81,14 +73,6 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
     if (projetoAtualizado) {
       // Atualizar estado local com dados atualizados
       setProjeto(projetoAtualizado);
-      setSalaForm({
-        nome: '',
-        capacidade_total: 0,
-        localizacao: '',
-        status: 'ATIVA',
-        cadeiras_moveis: 0,
-        cadeiras_especiais: 0,
-      });
       setShowSalaForm(false);
     } else {
       alert('Erro ao adicionar sala. Tente novamente.');
@@ -347,82 +331,6 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
             </button>
           </div>
 
-          {showSalaForm && (
-            <div className="card">
-              <div className="card-header">
-                <h3 className="card-title">Nova Sala</h3>
-              </div>
-              <div className="card-content">
-                <div className="form">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label className="label">Nome</label>
-                      <input
-                        type="text"
-                        value={salaForm.nome}
-                        onChange={(e) => setSalaForm(prev => ({ ...prev, nome: e.target.value }))}
-                        className="input"
-                        placeholder="Ex: Sala 1"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="label">Capacidade</label>
-                      <input
-                        type="number"
-                        value={salaForm.capacidade_total}
-                        onChange={(e) => setSalaForm(prev => ({ ...prev, capacidade_total: Number(e.target.value) }))}
-                        className="input"
-                        min="1"
-                      />
-                    </div>
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label className="label">Localização</label>
-                      <input
-                        type="text"
-                        value={salaForm.localizacao}
-                        onChange={(e) => setSalaForm(prev => ({ ...prev, localizacao: e.target.value }))}
-                        className="input"
-                        placeholder="Ex: Bloco A - 2º andar"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="label">Cadeiras Especiais</label>
-                      <input
-                        type="number"
-                        value={salaForm.cadeiras_especiais}
-                        onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_especiais: Number(e.target.value) }))}
-                        className="input"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label className="label">Cadeiras Móveis</label>
-                    <input
-                      type="number"
-                      value={salaForm.cadeiras_moveis}
-                      onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_moveis: Number(e.target.value) }))}
-                      className="input"
-                      min="0"
-                      placeholder="Quantidade de cadeiras móveis"
-                    />
-                  </div>
-                  <div className="flex gap-4">
-                    <button onClick={handleAddSala} className="btn btn-primary">
-                      <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                      Adicionar
-                    </button>
-                    <button onClick={() => setShowSalaForm(false)} className="btn btn-secondary">
-                      <X size={16} style={{ marginRight: '6px' }} />
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div className="grid gap-4">
             {isLoadingOperation ? (
@@ -584,6 +492,144 @@ export default function ProjetoDetalhes({ projeto: projetoProp, onBack }: Projet
           </div>
         </div>
       )}
+
+      {/* Modal para Adicionar Sala */}
+      <Modal
+        isOpen={showSalaForm}
+        onClose={() => setShowSalaForm(false)}
+        title="Nova Sala"
+        size="lg"
+      >
+        <div>
+          <form 
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const salaData = {
+                nome: formData.get('nome') as string,
+                capacidade_total: Number(formData.get('capacidade_total')),
+                localizacao: formData.get('localizacao') as string,
+                status: formData.get('status') as string,
+                cadeiras_moveis: formData.get('cadeiras_moveis') === 'true',
+                cadeiras_especiais: Number(formData.get('cadeiras_especiais')) || 0,
+              };
+              await handleAddSala(salaData);
+            }} 
+            className="form"
+          >
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="nome" className="label">
+                  Nome da Sala *
+                </label>
+                <input
+                  type="text"
+                  id="nome"
+                  name="nome"
+                  className="input"
+                  placeholder="Ex: Sala 1"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="capacidade_total" className="label">
+                  Capacidade Total *
+                </label>
+                <input
+                  type="number"
+                  id="capacidade_total"
+                  name="capacidade_total"
+                  className="input"
+                  min="1"
+                  placeholder="Ex: 35"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="localizacao" className="label">
+                  Localização *
+                </label>
+                <input
+                  type="text"
+                  id="localizacao"
+                  name="localizacao"
+                  className="input"
+                  placeholder="Ex: Bloco A - 2º andar"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="status" className="label">
+                  Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  className="select"
+                  defaultValue="ativa"
+                >
+                  <option value="ativa">Ativa</option>
+                  <option value="inativa">Inativa</option>
+                  <option value="manutencao">Em Manutenção</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="cadeiras_especiais" className="label">
+                  Cadeiras Especiais
+                </label>
+                <input
+                  type="number"
+                  id="cadeiras_especiais"
+                  name="cadeiras_especiais"
+                  className="input"
+                  min="0"
+                  placeholder="Ex: 2"
+                  defaultValue="0"
+                />
+              </div>
+
+              <div className="form-group">
+                <div className="checkbox-group" style={{ marginTop: '24px' }}>
+                  <input
+                    type="checkbox"
+                    id="cadeiras_moveis"
+                    name="cadeiras_moveis"
+                    value="true"
+                    className="checkbox"
+                  />
+                  <label htmlFor="cadeiras_moveis" className="label">
+                    Cadeiras Móveis
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-6">
+              <button type="submit" className="btn btn-primary" disabled={isLoadingOperation}>
+                <Plus size={16} style={{ marginRight: '6px' }} />
+                {isLoadingOperation ? 'Adicionando...' : 'Adicionar Sala'}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setShowSalaForm(false)} 
+                className="btn btn-secondary"
+                disabled={isLoadingOperation}
+              >
+                <X size={16} style={{ marginRight: '6px' }} />
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -104,165 +104,149 @@ export default function SalaForm({ sala, onClose }: SalaFormProps) {
   };
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <h2 className="card-title">
-          {sala ? 'Editar Sala' : 'Nova Sala'}
-        </h2>
-        <p className="card-description">
-          {sala 
-            ? 'Atualize as informações da sala'
-            : 'Preencha os dados para cadastrar uma nova sala'
-          }
-        </p>
+    <form onSubmit={handleSubmit} className="form">
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="nome" className="label">
+            Nome da Sala *
+          </label>
+          <input
+            type="text"
+            id="nome"
+            name="nome"
+            value={formData.nome}
+            onChange={handleChange}
+            className="input"
+            placeholder="Ex: Sala 1"
+          />
+          {errors.nome && (
+            <span className="text-sm" style={{ color: 'var(--danger-color)' }}>
+              {errors.nome}
+            </span>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="capacidade_total" className="label">
+            Capacidade Total *
+          </label>
+          <input
+            type="number"
+            id="capacidade_total"
+            name="capacidade_total"
+            value={formData.capacidade_total}
+            onChange={handleChange}
+            className="input"
+            min="1"
+            placeholder="Ex: 35"
+          />
+          {errors.capacidade_total && (
+            <span className="text-sm" style={{ color: 'var(--danger-color)' }}>
+              {errors.capacidade_total}
+            </span>
+          )}
+        </div>
       </div>
-      
-      <div className="card-content">
-        <form onSubmit={handleSubmit} className="form">
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="nome" className="label">
-                Nome da Sala *
-              </label>
-              <input
-                type="text"
-                id="nome"
-                name="nome"
-                value={formData.nome}
-                onChange={handleChange}
-                className="input"
-                placeholder="Ex: Sala 1"
-              />
-              {errors.nome && (
-                <span className="text-sm" style={{ color: 'var(--danger-color)' }}>
-                  {errors.nome}
-                </span>
-              )}
-            </div>
 
-            <div className="form-group">
-              <label htmlFor="capacidade_total" className="label">
-                Capacidade Total *
-              </label>
-              <input
-                type="number"
-                id="capacidade_total"
-                name="capacidade_total"
-                value={formData.capacidade_total}
-                onChange={handleChange}
-                className="input"
-                min="1"
-                placeholder="Ex: 35"
-              />
-              {errors.capacidade_total && (
-                <span className="text-sm" style={{ color: 'var(--danger-color)' }}>
-                  {errors.capacidade_total}
-                </span>
-              )}
-            </div>
-          </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="localizacao" className="label">
+            Localização *
+          </label>
+          <input
+            type="text"
+            id="localizacao"
+            name="localizacao"
+            value={formData.localizacao}
+            onChange={handleChange}
+            className="input"
+            placeholder="Ex: Bloco A - 2º andar"
+          />
+          {errors.localizacao && (
+            <span className="text-sm" style={{ color: 'var(--danger-color)' }}>
+              {errors.localizacao}
+            </span>
+          )}
+        </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="localizacao" className="label">
-                Localização *
-              </label>
-              <input
-                type="text"
-                id="localizacao"
-                name="localizacao"
-                value={formData.localizacao}
-                onChange={handleChange}
-                className="input"
-                placeholder="Ex: Bloco A - 2º andar"
-              />
-              {errors.localizacao && (
-                <span className="text-sm" style={{ color: 'var(--danger-color)' }}>
-                  {errors.localizacao}
-                </span>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="status" className="label">
-                Status
-              </label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="select"
-              >
-                <option value="ativa">Ativa</option>
-                <option value="inativa">Inativa</option>
-                <option value="manutencao">Em Manutenção</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="cadeiras_especiais" className="label">
-                Cadeiras Especiais
-              </label>
-              <input
-                type="number"
-                id="cadeiras_especiais"
-                name="cadeiras_especiais"
-                value={formData.cadeiras_especiais}
-                onChange={handleChange}
-                className="input"
-                min="0"
-                placeholder="Ex: 2"
-              />
-              {errors.cadeiras_especiais && (
-                <span className="text-sm" style={{ color: 'var(--danger-color)' }}>
-                  {errors.cadeiras_especiais}
-                </span>
-              )}
-            </div>
-
-            <div className="form-group">
-              <div className="checkbox-group" style={{ marginTop: '24px' }}>
-                <input
-                  type="checkbox"
-                  id="cadeiras_moveis"
-                  name="cadeiras_moveis"
-                  checked={formData.cadeiras_moveis}
-                  onChange={handleChange}
-                  className="checkbox"
-                />
-                <label htmlFor="cadeiras_moveis" className="label">
-                  Cadeiras Móveis
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-4 mt-6">
-            <button type="submit" className="btn btn-primary">
-              {sala ? (
-                <>
-                  <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                  Atualizar Sala
-                </>
-              ) : (
-                <>
-                  <Plus size={16} style={{ marginRight: '6px' }} />
-                  Cadastrar Sala
-                </>
-              )}
-            </button>
-            {onClose && (
-              <button type="button" onClick={onClose} className="btn btn-secondary">
-                <X size={16} style={{ marginRight: '6px' }} />
-                Cancelar
-              </button>
-            )}
-          </div>
-        </form>
+        <div className="form-group">
+          <label htmlFor="status" className="label">
+            Status
+          </label>
+          <select
+            id="status"
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            className="select"
+          >
+            <option value="ativa">Ativa</option>
+            <option value="inativa">Inativa</option>
+            <option value="manutencao">Em Manutenção</option>
+          </select>
+        </div>
       </div>
-    </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="cadeiras_especiais" className="label">
+            Cadeiras Especiais
+          </label>
+          <input
+            type="number"
+            id="cadeiras_especiais"
+            name="cadeiras_especiais"
+            value={formData.cadeiras_especiais}
+            onChange={handleChange}
+            className="input"
+            min="0"
+            placeholder="Ex: 2"
+          />
+          {errors.cadeiras_especiais && (
+            <span className="text-sm" style={{ color: 'var(--danger-color)' }}>
+              {errors.cadeiras_especiais}
+            </span>
+          )}
+        </div>
+
+        <div className="form-group">
+          <div className="checkbox-group" style={{ marginTop: '24px' }}>
+            <input
+              type="checkbox"
+              id="cadeiras_moveis"
+              name="cadeiras_moveis"
+              checked={formData.cadeiras_moveis}
+              onChange={handleChange}
+              className="checkbox"
+            />
+            <label htmlFor="cadeiras_moveis" className="label">
+              Cadeiras Móveis
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-4 mt-6">
+        <button type="submit" className="btn btn-primary">
+          {sala ? (
+            <>
+              <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+              Atualizar Sala
+            </>
+          ) : (
+            <>
+              <Plus size={16} style={{ marginRight: '6px' }} />
+              Cadastrar Sala
+            </>
+          )}
+        </button>
+        {onClose && (
+          <button type="button" onClick={onClose} className="btn btn-secondary">
+            <X size={16} style={{ marginRight: '6px' }} />
+            Cancelar
+          </button>
+        )}
+      </div>
+    </form>
   );
 }

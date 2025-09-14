@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Users } from 'phosphor-react';
 import type { Sala, FormSala, Horario, FormHorario, DiaSemana, Periodo, AlocacaoPrincipal, Turma, FormTurma } from '../types';
+import Modal from './Modal';
+import ConfirmModal from './ConfirmModal';
+import { useToast } from './Toast';
 
 // Labels para exibição
 const diasLabels: Record<DiaSemana, string> = {
@@ -28,6 +31,7 @@ interface AlocacoesManagerProps {
 }
 
 export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerProps) {
+  const toast = useToast();
   const [alocacoes, setAlocacoes] = useState<AlocacaoPrincipal[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -45,6 +49,14 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
   const [showHorarioModal, setShowHorarioModal] = useState(false);
   const [showTurmaModal, setShowTurmaModal] = useState(false);
   const [selectedHorarioId, setSelectedHorarioId] = useState<string | null>(null);
+
+  // Estados para confirmação
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   // Estados para formulários
   const [salaForm, setSalaForm] = useState<FormSala>({
@@ -155,13 +167,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         setShowForm(false);
         setEditingAlocacao(null);
         
-        alert('Alocação salva com sucesso!');
+        toast.success('Sucesso!', 'Alocação salva com sucesso!');
       } else {
-        alert(data.error || 'Erro ao salvar alocação');
+        toast.error('Erro', data.error || 'Erro ao salvar alocação');
       }
     } catch (error) {
       console.error('Erro ao salvar alocação:', error);
-      alert('Erro ao salvar alocação');
+      toast.error('Erro', 'Erro ao salvar alocação');
     } finally {
       setLoading(false);
     }
@@ -176,65 +188,77 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     setShowForm(true);
   };
 
-  const handleDelete = async (alocacao: AlocacaoPrincipal) => {
-    if (window.confirm('Tem certeza que deseja excluir esta alocação?')) {
-      setLoading(true);
-      try {
-        const response = await fetch(`http://localhost:3001/api/alocacoes/${alocacao.id}`, {
-          method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          await loadAlocacoes();
-          alert('Alocação excluída com sucesso!');
-        } else {
-          alert(data.error || 'Erro ao excluir alocação');
+  const handleDelete = (alocacao: AlocacaoPrincipal) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Excluir Alocação',
+      message: `Tem certeza que deseja excluir a alocação "${alocacao.nome}"? Esta ação não pode ser desfeita.`,
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        setLoading(true);
+        try {
+          const response = await fetch(`http://localhost:3001/api/alocacoes/${alocacao.id}`, {
+            method: 'DELETE'
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            await loadAlocacoes();
+            toast.success('Sucesso!', 'Alocação excluída com sucesso!');
+          } else {
+            toast.error('Erro', data.error || 'Erro ao excluir alocação');
+          }
+        } catch (error) {
+          console.error('Erro ao excluir alocação:', error);
+          toast.error('Erro', 'Erro ao excluir alocação');
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Erro ao excluir alocação:', error);
-        alert('Erro ao excluir alocação');
-      } finally {
-        setLoading(false);
       }
-    }
+    });
   };
 
 
-  const handleRemoveSala = async (alocacao: AlocacaoPrincipal, sala: Sala) => {
-    if (window.confirm(`Remover ${sala.nome} desta alocação?`)) {
-      setLoading(true);
-      try {
-        const response = await fetch(`http://localhost:3001/api/alocacoes/${alocacao.id}/salas/${sala.id}`, {
-          method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          await loadAlocacoes();
-          alert('Sala removida com sucesso!');
-        } else {
-          alert(data.error || 'Erro ao remover sala');
+  const handleRemoveSala = (alocacao: AlocacaoPrincipal, sala: Sala) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remover Sala',
+      message: `Tem certeza que deseja remover "${sala.nome}" desta alocação?`,
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        setLoading(true);
+        try {
+          const response = await fetch(`http://localhost:3001/api/alocacoes/${alocacao.id}/salas/${sala.id}`, {
+            method: 'DELETE'
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            await loadAlocacoes();
+            toast.success('Sucesso!', 'Sala removida com sucesso!');
+          } else {
+            toast.error('Erro', data.error || 'Erro ao remover sala');
+          }
+        } catch (error) {
+          console.error('Erro ao remover sala:', error);
+          toast.error('Erro', 'Erro ao remover sala');
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Erro ao remover sala:', error);
-        alert('Erro ao remover sala');
-      } finally {
-        setLoading(false);
       }
-    }
+    });
   };
 
   const handleCreateSala = async () => {
     if (!salaForm.nome || salaForm.capacidade_total <= 0) {
-      alert('Preencha o nome e capacidade da sala');
+      toast.warning('Atenção', 'Preencha o nome e capacidade da sala');
       return;
     }
 
     if (!selectedAlocacaoId) {
-      alert('Erro: Alocação não selecionada');
+      toast.error('Erro', 'Alocação não selecionada');
       return;
     }
 
@@ -256,7 +280,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       const salaData = await salaResponse.json();
       
       if (!salaData.success) {
-        alert(salaData.error || 'Erro ao criar sala');
+        toast.error('Erro', salaData.error || 'Erro ao criar sala');
         return;
       }
 
@@ -285,13 +309,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         setShowSalaModal(false);
         setSelectedAlocacaoId(null);
         
-        alert('Sala criada e adicionada à alocação com sucesso!');
+        toast.success('Sucesso!', 'Sala criada e adicionada à alocação com sucesso!');
       } else {
-        alert(alocacaoData.error || 'Erro ao adicionar sala à alocação');
+        toast.error('Erro', alocacaoData.error || 'Erro ao adicionar sala à alocação');
       }
     } catch (error) {
       console.error('Erro ao criar sala:', error);
-      alert('Erro ao criar sala');
+      toast.error('Erro', 'Erro ao criar sala');
     } finally {
       setLoading(false);
     }
@@ -300,7 +324,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
   // Funções para gerenciar horários
   const handleCreateHorario = async () => {
     if (!selectedAlocacaoId) {
-      alert('Erro: Alocação não selecionada');
+      toast.error('Erro', 'Alocação não selecionada');
       return;
     }
 
@@ -319,13 +343,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
         setShowHorarioModal(false);
         setSelectedAlocacaoId(null);
-        alert('Horário criado com sucesso!');
+        toast.success('Sucesso!', 'Horário criado com sucesso!');
       } else {
-        alert(data.error || 'Erro ao criar horário');
+        toast.error('Erro', data.error || 'Erro ao criar horário');
       }
     } catch (error) {
       console.error('Erro ao criar horário:', error);
-      alert('Erro ao criar horário');
+      toast.error('Erro', 'Erro ao criar horário');
     } finally {
       setLoading(false);
     }
@@ -335,12 +359,12 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
   // Funções para gerenciar turmas nos horários
   const handleCreateTurma = async () => {
     if (!turmaForm.nome || turmaForm.alunos <= 0) {
-      alert('Preencha o nome e número de alunos da turma');
+      toast.warning('Atenção', 'Preencha o nome e número de alunos da turma');
       return;
     }
 
     if (!selectedHorarioId) {
-      alert('Erro: Horário não selecionado');
+      toast.error('Erro', 'Horário não selecionado');
       return;
     }
 
@@ -362,7 +386,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       const turmaData = await turmaResponse.json();
       
       if (!turmaData.success) {
-        alert(turmaData.error || 'Erro ao criar turma');
+        toast.error('Erro', turmaData.error || 'Erro ao criar turma');
         return;
       }
 
@@ -380,41 +404,47 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
         setShowTurmaModal(false);
         setSelectedHorarioId(null);
-        alert('Turma criada e adicionada ao horário com sucesso!');
+        toast.success('Sucesso!', 'Turma criada e adicionada ao horário com sucesso!');
       } else {
-        alert(horarioData.error || 'Erro ao adicionar turma ao horário');
+        toast.error('Erro', horarioData.error || 'Erro ao adicionar turma ao horário');
       }
     } catch (error) {
       console.error('Erro ao criar turma:', error);
-      alert('Erro ao criar turma');
+      toast.error('Erro', 'Erro ao criar turma');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRemoveTurma = async (horario: Horario, turma: Turma) => {
-    if (window.confirm(`Remover ${turma.nome} deste horário?`)) {
-      setLoading(true);
-      try {
-        const response = await fetch(`http://localhost:3001/api/horarios/${horario.id}/turmas/${turma.id}`, {
-          method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          await loadAlocacoes();
-          alert('Turma removida com sucesso!');
-        } else {
-          alert(data.error || 'Erro ao remover turma');
+  const handleRemoveTurma = (horario: Horario, turma: Turma) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remover Turma',
+      message: `Tem certeza que deseja remover "${turma.nome}" deste horário?`,
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        setLoading(true);
+        try {
+          const response = await fetch(`http://localhost:3001/api/horarios/${horario.id}/turmas/${turma.id}`, {
+            method: 'DELETE'
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            await loadAlocacoes();
+            toast.success('Sucesso!', 'Turma removida com sucesso!');
+          } else {
+            toast.error('Erro', data.error || 'Erro ao remover turma');
+          }
+        } catch (error) {
+          console.error('Erro ao remover turma:', error);
+          toast.error('Erro', 'Erro ao remover turma');
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Erro ao remover turma:', error);
-        alert('Erro ao remover turma');
-      } finally {
-        setLoading(false);
       }
-    }
+    });
   };
 
   if (loading) {
@@ -448,83 +478,74 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         </div>
       </div>
 
-      {/* Formulário de Alocação */}
-      {showForm && (
-        <div className="card shadow-lg border-0">
-          <div className="card-header bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-            <h2 className="card-title text-white flex items-center gap-2">
-              {editingAlocacao ? (
-                <>
-                  <PencilSimple size={20} />
-                  Editar Alocação
-                </>
-              ) : (
-                <>
-                  <Plus size={20} />
-                  Nova Alocação
-                </>
-              )}
-            </h2>
-          </div>
-          <div className="card-content" style={{ padding: 'var(--spacing-6)' }}>
-            <form onSubmit={handleSubmitAlocacao} className="form">
-              <div className="grid gap-6">
-                <div className="form-group">
-                  <label className="label text-base font-semibold">Nome da Alocação *</label>
-                  <input
-                    type="text"
-                    value={formData.nome}
-                    onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
-                    className="input input-lg"
-                    placeholder="Ex: Alocação Engenharia 2025.1, Turmas Matutinas"
-                    required
-                    disabled={loading}
-                  />
-                  <span className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                    Escolha um nome descritivo que identifique claramente esta alocação
-                  </span>
-                </div>
-                
-                <div className="form-group">
-                  <label className="label text-base font-semibold">Descrição *</label>
-                  <textarea
-                    value={formData.descricao}
-                    onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
-                    className="textarea"
-                    rows={4}
-                    placeholder="Descreva o objetivo desta alocação, período letivo, cursos envolvidos, etc."
-                    required
-                    disabled={loading}
-                  />
-                  <span className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                    Explique o contexto e objetivo desta alocação para facilitar o gerenciamento
-                  </span>
-                </div>
+      {/* Modal de Nova Alocação */}
+      <Modal
+        isOpen={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditingAlocacao(null);
+          setFormData({ nome: '', descricao: '' });
+        }}
+        title={editingAlocacao ? 'Editar Alocação' : 'Nova Alocação'}
+        size="lg"
+        closeOnBackdropClick={false}
+      >
+        <form onSubmit={handleSubmitAlocacao} className="form">
+          <div className="grid gap-6">
+            <div className="form-group">
+              <label className="label text-base font-semibold">Nome da Alocação *</label>
+              <input
+                type="text"
+                value={formData.nome}
+                onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+                className="input input-lg"
+                placeholder="Ex: Alocação Engenharia 2025.1, Turmas Matutinas"
+                required
+                disabled={loading}
+              />
+              <span className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                Escolha um nome descritivo que identifique claramente esta alocação
+              </span>
+            </div>
+            
+            <div className="form-group">
+              <label className="label text-base font-semibold">Descrição *</label>
+              <textarea
+                value={formData.descricao}
+                onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
+                className="textarea"
+                rows={4}
+                placeholder="Descreva o objetivo desta alocação, período letivo, cursos envolvidos, etc."
+                required
+                disabled={loading}
+              />
+              <span className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                Explique o contexto e objetivo desta alocação para facilitar o gerenciamento
+              </span>
+            </div>
 
-                <div className="flex gap-4 pt-4 border-t">
-                  <button type="submit" className="btn btn-primary" disabled={loading}>
-                    <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                    {loading ? 'Salvando...' : (editingAlocacao ? 'Atualizar' : 'Criar')} Alocação
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setShowForm(false);
-                      setEditingAlocacao(null);
-                      setFormData({ nome: '', descricao: '' });
-                    }}
-                    className="btn btn-secondary"
-                    disabled={loading}
-                  >
-                    <X size={16} style={{ marginRight: '6px' }} />
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            </form>
+            <div className="flex gap-4 pt-4 border-t">
+              <button type="submit" className="btn btn-primary" disabled={loading}>
+                <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+                {loading ? 'Salvando...' : (editingAlocacao ? 'Atualizar' : 'Criar')} Alocação
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingAlocacao(null);
+                  setFormData({ nome: '', descricao: '' });
+                }}
+                className="btn btn-secondary"
+                disabled={loading}
+              >
+                <X size={16} style={{ marginRight: '6px' }} />
+                Cancelar
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
       {/* Lista de Alocações */}
       <div className="grid gap-4">
@@ -821,304 +842,326 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         )}
       </div>
 
-      {/* Modal para Adicionar Sala */}
-      {showSalaModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="card-header bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
-              <h2 className="card-title text-white flex items-center gap-2 text-xl">
-                <Buildings size={24} />
-                Adicionar Nova Sala
-              </h2>
-            </div>
-            
-            <div className="p-6">
-              <form className="form">
-                {/* Linha 1: Nome e Capacidade */}
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="label">Nome da Sala *</label>
-                    <input
-                      type="text"
-                      value={salaForm.nome}
-                      onChange={(e) => setSalaForm(prev => ({ ...prev, nome: e.target.value }))}
-                      className="input"
-                      placeholder="Ex: Sala A1, Laboratório"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="label">Capacidade Total *</label>
-                    <input
-                      type="number"
-                      value={salaForm.capacidade_total}
-                      onChange={(e) => setSalaForm(prev => ({ ...prev, capacidade_total: Number(e.target.value) }))}
-                      className="input"
-                      min="1"
-                      placeholder="30"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-                
-                {/* Linha 2: Localização */}
-                <div className="form-group">
-                  <label className="label">Localização</label>
-                  <input
-                    type="text"
-                    value={salaForm.localizacao}
-                    onChange={(e) => setSalaForm(prev => ({ ...prev, localizacao: e.target.value }))}
-                    className="input"
-                    placeholder="Ex: Bloco A - 2º andar"
-                    disabled={loading}
-                  />
-                </div>
-                
-                {/* Linha 3: Cadeiras Especiais e Móveis */}
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="label">Cadeiras Especiais</label>
-                    <input
-                      type="number"
-                      value={salaForm.cadeiras_especiais}
-                      onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_especiais: Number(e.target.value) }))}
-                      className="input"
-                      min="0"
-                      placeholder="0"
-                      disabled={loading}
-                    />
-                    <small className="form-text">Para alunos com necessidades especiais</small>
-                  </div>
-                  <div className="form-group">
-                    <label className="label">Cadeiras Móveis</label>
-                    <input
-                      type="number"
-                      value={salaForm.cadeiras_moveis}
-                      onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_moveis: Number(e.target.value) }))}
-                      className="input"
-                      min="0"
-                      placeholder="0"
-                      disabled={loading}
-                    />
-                    <small className="form-text">Cadeiras que podem ser remanejadas</small>
-                  </div>
-                </div>
-                
-                {/* Botões */}
-                <div className="flex gap-4 pt-6 border-t border-gray-200">
-                  <button 
-                    type="button"
-                    onClick={handleCreateSala}
-                    className="btn btn-primary flex-1" 
-                    disabled={loading}
-                  >
-                    <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                    {loading ? 'Criando...' : 'Criar Sala'}
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setShowSalaModal(false);
-                      setSelectedAlocacaoId(null);
-                      setSalaForm({
-                        nome: '',
-                        capacidade_total: 0,
-                        localizacao: '',
-                        status: 'ATIVA',
-                        cadeiras_moveis: 0,
-                        cadeiras_especiais: 0,
-                      });
-                    }}
-                    className="btn btn-secondary"
-                    disabled={loading}
-                  >
-                    <X size={16} style={{ marginRight: '6px' }} />
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal para Adicionar Horário */}
-      {showHorarioModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
-            <div className="card-header bg-gradient-to-r from-green-600 to-green-700 text-white rounded-t-lg">
-              <h2 className="card-title text-white flex items-center gap-2 text-xl">
-                <Calendar size={24} />
-                Adicionar Novo Horário
-              </h2>
+      <Modal
+        isOpen={showHorarioModal}
+        onClose={() => {
+          setShowHorarioModal(false);
+          setSelectedAlocacaoId(null);
+          setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+        }}
+        title="Adicionar Novo Horário"
+        size="md"
+      >
+        <form 
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleCreateHorario();
+          }} 
+          className="form"
+        >
+          <div className="form-row">
+            <div className="form-group">
+              <label className="label">Dia da Semana *</label>
+              <select
+                value={horarioForm.dia_semana}
+                onChange={(e) => setHorarioForm(prev => ({ ...prev, dia_semana: e.target.value as DiaSemana }))}
+                className="input"
+                required
+                disabled={loading}
+              >
+                <option value="SEGUNDA">Segunda-feira</option>
+                <option value="TERCA">Terça-feira</option>
+                <option value="QUARTA">Quarta-feira</option>
+                <option value="QUINTA">Quinta-feira</option>
+                <option value="SEXTA">Sexta-feira</option>
+                <option value="SABADO">Sábado</option>
+              </select>
             </div>
-            
-            <div className="p-6">
-              <form className="form">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="label">Dia da Semana *</label>
-                    <select
-                      value={horarioForm.dia_semana}
-                      onChange={(e) => setHorarioForm(prev => ({ ...prev, dia_semana: e.target.value as DiaSemana }))}
-                      className="input"
-                      required
-                      disabled={loading}
-                    >
-                      <option value="SEGUNDA">Segunda-feira</option>
-                      <option value="TERCA">Terça-feira</option>
-                      <option value="QUARTA">Quarta-feira</option>
-                      <option value="QUINTA">Quinta-feira</option>
-                      <option value="SEXTA">Sexta-feira</option>
-                      <option value="SABADO">Sábado</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="label">Período *</label>
-                    <select
-                      value={horarioForm.periodo}
-                      onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
-                      className="input"
-                      required
-                      disabled={loading}
-                    >
-                      <option value="MATUTINO">Matutino</option>
-                      <option value="VESPERTINO">Vespertino</option>
-                      <option value="NOTURNO">Noturno</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="flex gap-4 pt-6 border-t border-gray-200">
-                  <button 
-                    type="button"
-                    onClick={handleCreateHorario}
-                    className="btn btn-primary flex-1" 
-                    disabled={loading}
-                  >
-                    <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                    {loading ? 'Criando...' : 'Criar Horário'}
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setShowHorarioModal(false);
-                      setSelectedAlocacaoId(null);
-                      setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
-                    }}
-                    className="btn btn-secondary"
-                    disabled={loading}
-                  >
-                    <X size={16} style={{ marginRight: '6px' }} />
-                    Cancelar
-                  </button>
-                </div>
-              </form>
+            <div className="form-group">
+              <label className="label">Período *</label>
+              <select
+                value={horarioForm.periodo}
+                onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
+                className="input"
+                required
+                disabled={loading}
+              >
+                <option value="MATUTINO">Matutino</option>
+                <option value="VESPERTINO">Vespertino</option>
+                <option value="NOTURNO">Noturno</option>
+              </select>
             </div>
           </div>
-        </div>
-      )}
+          
+          <div className="flex gap-4 pt-6 border-t border-gray-200">
+            <button 
+              type="submit"
+              className="btn btn-primary flex-1" 
+              disabled={loading}
+            >
+              <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+              {loading ? 'Criando...' : 'Criar Horário'}
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                setShowHorarioModal(false);
+                setSelectedAlocacaoId(null);
+                setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+              }}
+              className="btn btn-secondary"
+              disabled={loading}
+            >
+              <X size={16} style={{ marginRight: '6px' }} />
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Modal para Adicionar Turma */}
-      {showTurmaModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
-            <div className="card-header bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-t-lg">
-              <h2 className="card-title text-white flex items-center gap-2 text-xl">
-                <Users size={24} />
-                Adicionar Nova Turma
-              </h2>
+      <Modal
+        isOpen={showTurmaModal}
+        onClose={() => {
+          setShowTurmaModal(false);
+          setSelectedHorarioId(null);
+          setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
+        }}
+        title="Adicionar Nova Turma"
+        size="lg"
+      >
+        <form 
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleCreateTurma();
+          }} 
+          className="form"
+        >
+          <div className="form-row">
+            <div className="form-group">
+              <label className="label">Nome da Turma *</label>
+              <input
+                type="text"
+                value={turmaForm.nome}
+                onChange={(e) => setTurmaForm(prev => ({ ...prev, nome: e.target.value }))}
+                className="input"
+                placeholder="Ex: Engenharia Civil 3A"
+                required
+                disabled={loading}
+              />
             </div>
-            
-            <div className="p-6">
-              <form className="form">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="label">Nome da Turma *</label>
-                    <input
-                      type="text"
-                      value={turmaForm.nome}
-                      onChange={(e) => setTurmaForm(prev => ({ ...prev, nome: e.target.value }))}
-                      className="input"
-                      placeholder="Ex: Engenharia Civil 3A"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="label">Número de Alunos *</label>
-                    <input
-                      type="number"
-                      value={turmaForm.alunos}
-                      onChange={(e) => setTurmaForm(prev => ({ ...prev, alunos: Number(e.target.value) }))}
-                      className="input"
-                      min="1"
-                      placeholder="30"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="label">Duração (minutos)</label>
-                    <input
-                      type="number"
-                      value={turmaForm.duracao_min}
-                      onChange={(e) => setTurmaForm(prev => ({ ...prev, duracao_min: Number(e.target.value) }))}
-                      className="input"
-                      min="0"
-                      placeholder="60"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="label">Necessidades Especiais</label>
-                    <input
-                      type="number"
-                      value={turmaForm.esp_necessarias}
-                      onChange={(e) => setTurmaForm(prev => ({ ...prev, esp_necessarias: Number(e.target.value) }))}
-                      className="input"
-                      min="0"
-                      placeholder="0"
-                      disabled={loading}
-                    />
-                    <small className="form-text">Alunos com necessidades especiais</small>
-                  </div>
-                </div>
-                
-                <div className="flex gap-4 pt-6 border-t border-gray-200">
-                  <button 
-                    type="button"
-                    onClick={handleCreateTurma}
-                    className="btn btn-primary flex-1" 
-                    disabled={loading}
-                  >
-                    <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                    {loading ? 'Criando...' : 'Criar Turma'}
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setShowTurmaModal(false);
-                      setSelectedHorarioId(null);
-                      setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
-                    }}
-                    className="btn btn-secondary"
-                    disabled={loading}
-                  >
-                    <X size={16} style={{ marginRight: '6px' }} />
-                    Cancelar
-                  </button>
-                </div>
-              </form>
+            <div className="form-group">
+              <label className="label">Número de Alunos *</label>
+              <input
+                type="number"
+                value={turmaForm.alunos}
+                onChange={(e) => setTurmaForm(prev => ({ ...prev, alunos: Number(e.target.value) }))}
+                className="input"
+                min="1"
+                placeholder="30"
+                required
+                disabled={loading}
+              />
             </div>
           </div>
-        </div>
-      )}
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label className="label">Duração (minutos)</label>
+              <input
+                type="number"
+                value={turmaForm.duracao_min}
+                onChange={(e) => setTurmaForm(prev => ({ ...prev, duracao_min: Number(e.target.value) }))}
+                className="input"
+                min="0"
+                placeholder="60"
+                disabled={loading}
+              />
+            </div>
+            <div className="form-group">
+              <label className="label">Necessidades Especiais</label>
+              <input
+                type="number"
+                value={turmaForm.esp_necessarias}
+                onChange={(e) => setTurmaForm(prev => ({ ...prev, esp_necessarias: Number(e.target.value) }))}
+                className="input"
+                min="0"
+                placeholder="0"
+                disabled={loading}
+              />
+              <small className="form-text">Alunos com necessidades especiais</small>
+            </div>
+          </div>
+          
+          <div className="flex gap-4 pt-6 border-t border-gray-200">
+            <button 
+              type="submit"
+              className="btn btn-primary flex-1" 
+              disabled={loading}
+            >
+              <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+              {loading ? 'Criando...' : 'Criar Turma'}
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                setShowTurmaModal(false);
+                setSelectedHorarioId(null);
+                setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
+              }}
+              className="btn btn-secondary"
+              disabled={loading}
+            >
+              <X size={16} style={{ marginRight: '6px' }} />
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal para Adicionar Sala */}
+      <Modal
+        isOpen={showSalaModal}
+        onClose={() => {
+          setShowSalaModal(false);
+          setSelectedAlocacaoId(null);
+          setSalaForm({
+            nome: '',
+            capacidade_total: 0,
+            localizacao: '',
+            status: 'ATIVA',
+            cadeiras_moveis: 0,
+            cadeiras_especiais: 0,
+          });
+        }}
+        title="Adicionar Nova Sala"
+        size="lg"
+      >
+        <form 
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleCreateSala();
+          }} 
+          className="form"
+        >
+          {/* Linha 1: Nome e Capacidade */}
+          <div className="form-row">
+            <div className="form-group">
+              <label className="label">Nome da Sala *</label>
+              <input
+                type="text"
+                value={salaForm.nome}
+                onChange={(e) => setSalaForm(prev => ({ ...prev, nome: e.target.value }))}
+                className="input"
+                placeholder="Ex: Sala A1, Laboratório"
+                required
+                disabled={loading}
+              />
+            </div>
+            <div className="form-group">
+              <label className="label">Capacidade Total *</label>
+              <input
+                type="number"
+                value={salaForm.capacidade_total}
+                onChange={(e) => setSalaForm(prev => ({ ...prev, capacidade_total: Number(e.target.value) }))}
+                className="input"
+                min="1"
+                placeholder="30"
+                required
+                disabled={loading}
+              />
+            </div>
+          </div>
+          
+          {/* Linha 2: Localização */}
+          <div className="form-group">
+            <label className="label">Localização</label>
+            <input
+              type="text"
+              value={salaForm.localizacao}
+              onChange={(e) => setSalaForm(prev => ({ ...prev, localizacao: e.target.value }))}
+              className="input"
+              placeholder="Ex: Bloco A - 2º andar"
+              disabled={loading}
+            />
+          </div>
+          
+          {/* Linha 3: Cadeiras Especiais e Móveis */}
+          <div className="form-row">
+            <div className="form-group">
+              <label className="label">Cadeiras Especiais</label>
+              <input
+                type="number"
+                value={salaForm.cadeiras_especiais}
+                onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_especiais: Number(e.target.value) }))}
+                className="input"
+                min="0"
+                placeholder="0"
+                disabled={loading}
+              />
+              <small className="form-text">Para alunos com necessidades especiais</small>
+            </div>
+            <div className="form-group">
+              <label className="label">Cadeiras Móveis</label>
+              <input
+                type="number"
+                value={salaForm.cadeiras_moveis}
+                onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_moveis: Number(e.target.value) }))}
+                className="input"
+                min="0"
+                placeholder="0"
+                disabled={loading}
+              />
+              <small className="form-text">Cadeiras que podem ser remanejadas</small>
+            </div>
+          </div>
+          
+          {/* Botões */}
+          <div className="flex gap-4 pt-6 border-t border-gray-200">
+            <button 
+              type="submit"
+              className="btn btn-primary flex-1" 
+              disabled={loading}
+            >
+              <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+              {loading ? 'Criando...' : 'Criar Sala'}
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                setShowSalaModal(false);
+                setSelectedAlocacaoId(null);
+                setSalaForm({
+                  nome: '',
+                  capacidade_total: 0,
+                  localizacao: '',
+                  status: 'ATIVA',
+                  cadeiras_moveis: 0,
+                  cadeiras_especiais: 0,
+                });
+              }}
+              className="btn btn-secondary"
+              disabled={loading}
+            >
+              <X size={16} style={{ marginRight: '6px' }} />
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal de Confirmação */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type="danger"
+        confirmText="Excluir"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+      />
     </div>
   );
 }

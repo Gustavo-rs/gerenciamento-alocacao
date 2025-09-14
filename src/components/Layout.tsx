@@ -12,6 +12,7 @@ export default function Layout({ children }: LayoutProps) {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: ChartBar },
     { id: 'alocacoes', label: 'Alocações', icon: Buildings },
+    { id: 'salas', label: 'Salas', icon: Buildings },
     { id: 'projetos', label: 'Projetos (Antigo)', icon: FolderOpen },
     { id: 'resultados', label: 'Resultados', icon: Calendar },
   ];
