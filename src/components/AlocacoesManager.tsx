@@ -39,8 +39,14 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     descricao: ''
   });
 
-  // Estados para adicionar sala nova
-  const [showSalaForm, setShowSalaForm] = useState<string | null>(null); // ID da alocação
+  // Estados para modais
+  const [showSalaModal, setShowSalaModal] = useState(false);
+  const [selectedAlocacaoId, setSelectedAlocacaoId] = useState<string | null>(null);
+  const [showHorarioModal, setShowHorarioModal] = useState(false);
+  const [showTurmaModal, setShowTurmaModal] = useState(false);
+  const [selectedHorarioId, setSelectedHorarioId] = useState<string | null>(null);
+
+  // Estados para formulários
   const [salaForm, setSalaForm] = useState<FormSala>({
     nome: '',
     capacidade_total: 0,
@@ -50,15 +56,11 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     cadeiras_especiais: 0,
   });
 
-  // Estados para horários (sub-alocações)
-  const [showHorarioForm, setShowHorarioForm] = useState<string | null>(null); // ID da alocação
   const [horarioForm, setHorarioForm] = useState<FormHorario>({
     dia_semana: 'SEGUNDA',
     periodo: 'MATUTINO'
   });
 
-  // Estados para turmas
-  const [showTurmaForm, setShowTurmaForm] = useState<string | null>(null); // ID do horário
   const [turmaForm, setTurmaForm] = useState<FormTurma>({
     nome: '',
     alunos: 0,
@@ -225,9 +227,14 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     }
   };
 
-  const handleCreateSala = async (alocacaoId: string) => {
+  const handleCreateSala = async () => {
     if (!salaForm.nome || salaForm.capacidade_total <= 0) {
       alert('Preencha o nome e capacidade da sala');
+      return;
+    }
+
+    if (!selectedAlocacaoId) {
+      alert('Erro: Alocação não selecionada');
       return;
     }
 
@@ -254,7 +261,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       }
 
       // 2. Adicionar a sala à alocação
-      const alocacaoResponse = await fetch(`http://localhost:3001/api/alocacoes/${alocacaoId}/salas`, {
+      const alocacaoResponse = await fetch(`http://localhost:3001/api/alocacoes/${selectedAlocacaoId}/salas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sala_id: salaData.data.id })
@@ -266,7 +273,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         // Recarregar lista
         await loadAlocacoes();
         
-        // Reset form
+        // Reset form e fechar modal
         setSalaForm({
           nome: '',
           capacidade_total: 0,
@@ -275,7 +282,8 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           cadeiras_moveis: 0,
           cadeiras_especiais: 0,
         });
-        setShowSalaForm(null);
+        setShowSalaModal(false);
+        setSelectedAlocacaoId(null);
         
         alert('Sala criada e adicionada à alocação com sucesso!');
       } else {
@@ -290,10 +298,15 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
   };
 
   // Funções para gerenciar horários
-  const handleCreateHorario = async (alocacaoId: string) => {
+  const handleCreateHorario = async () => {
+    if (!selectedAlocacaoId) {
+      alert('Erro: Alocação não selecionada');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/alocacoes/${alocacaoId}/horarios`, {
+      const response = await fetch(`http://localhost:3001/api/alocacoes/${selectedAlocacaoId}/horarios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(horarioForm)
@@ -304,7 +317,8 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       if (data.success) {
         await loadAlocacoes();
         setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
-        setShowHorarioForm(null);
+        setShowHorarioModal(false);
+        setSelectedAlocacaoId(null);
         alert('Horário criado com sucesso!');
       } else {
         alert(data.error || 'Erro ao criar horário');
@@ -319,9 +333,14 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
 
 
   // Funções para gerenciar turmas nos horários
-  const handleCreateTurma = async (horarioId: string) => {
+  const handleCreateTurma = async () => {
     if (!turmaForm.nome || turmaForm.alunos <= 0) {
       alert('Preencha o nome e número de alunos da turma');
+      return;
+    }
+
+    if (!selectedHorarioId) {
+      alert('Erro: Horário não selecionado');
       return;
     }
 
@@ -348,7 +367,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       }
 
       // 2. Adicionar a turma ao horário
-      const horarioResponse = await fetch(`http://localhost:3001/api/horarios/${horarioId}/turmas`, {
+      const horarioResponse = await fetch(`http://localhost:3001/api/horarios/${selectedHorarioId}/turmas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ turma_id: turmaData.data.id })
@@ -359,7 +378,8 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       if (horarioData.success) {
         await loadAlocacoes();
         setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
-        setShowTurmaForm(null);
+        setShowTurmaModal(false);
+        setSelectedHorarioId(null);
         alert('Turma criada e adicionada ao horário com sucesso!');
       } else {
         alert(horarioData.error || 'Erro ao adicionar turma ao horário');
@@ -594,7 +614,10 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                         Salas da Alocação
                       </h4>
                       <button
-                        onClick={() => setShowSalaForm(alocacao.id)}
+                        onClick={() => {
+                          setSelectedAlocacaoId(alocacao.id);
+                          setShowSalaModal(true);
+                        }}
                         className="btn btn-sm btn-primary"
                         disabled={loading}
                         title="Adicionar nova sala"
@@ -674,123 +697,6 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                       </div>
                     )}
 
-                    {/* Formulário para adicionar nova sala */}
-                    {showSalaForm === alocacao.id && (
-                      <div className="card" style={{ marginTop: 'var(--spacing-4)', border: '2px solid #3b82f6' }}>
-                        <div className="card-header" style={{ backgroundColor: '#eff6ff', borderBottom: '1px solid #dbeafe' }}>
-                          <h5 className="card-title flex items-center" style={{ gap: 'var(--spacing-2)', color: '#1e40af', margin: 0 }}>
-                            <Plus size={18} />
-                            Adicionar Nova Sala
-                          </h5>
-                        </div>
-                        
-                        <div className="card-content">
-                          <form className="form">
-                            {/* Linha 1: Nome e Capacidade */}
-                            <div className="form-row">
-                              <div className="form-group">
-                                <label className="label">Nome da Sala *</label>
-                                <input
-                                  type="text"
-                                  value={salaForm.nome}
-                                  onChange={(e) => setSalaForm(prev => ({ ...prev, nome: e.target.value }))}
-                                  className="input"
-                                  placeholder="Ex: Sala A1, Laboratório"
-                                  required
-                                  disabled={loading}
-                                />
-                              </div>
-                              <div className="form-group">
-                                <label className="label">Capacidade Total *</label>
-                                <input
-                                  type="number"
-                                  value={salaForm.capacidade_total}
-                                  onChange={(e) => setSalaForm(prev => ({ ...prev, capacidade_total: Number(e.target.value) }))}
-                                  className="input"
-                                  min="1"
-                                  placeholder="30"
-                                  required
-                                  disabled={loading}
-                                />
-                              </div>
-                            </div>
-                            
-                            {/* Linha 2: Localização */}
-                            <div className="form-group">
-                              <label className="label">Localização</label>
-                              <input
-                                type="text"
-                                value={salaForm.localizacao}
-                                onChange={(e) => setSalaForm(prev => ({ ...prev, localizacao: e.target.value }))}
-                                className="input"
-                                placeholder="Ex: Bloco A - 2º andar"
-                                disabled={loading}
-                              />
-                            </div>
-                            
-                            {/* Linha 3: Cadeiras Especiais e Móveis */}
-                            <div className="form-row">
-                              <div className="form-group">
-                                <label className="label">Cadeiras Especiais</label>
-                                <input
-                                  type="number"
-                                  value={salaForm.cadeiras_especiais}
-                                  onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_especiais: Number(e.target.value) }))}
-                                  className="input"
-                                  min="0"
-                                  placeholder="0"
-                                  disabled={loading}
-                                />
-                                <small className="form-text">Para alunos com necessidades especiais</small>
-                              </div>
-                              <div className="form-group">
-                                <label className="label">Cadeiras Móveis</label>
-                                <input
-                                  type="number"
-                                  value={salaForm.cadeiras_moveis}
-                                  onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_moveis: Number(e.target.value) }))}
-                                  className="input"
-                                  min="0"
-                                  placeholder="0"
-                                  disabled={loading}
-                                />
-                                <small className="form-text">Cadeiras que podem ser remanejadas</small>
-                              </div>
-                            </div>
-                            
-                            {/* Botões */}
-                            <div className="flex" style={{ gap: 'var(--spacing-3)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--border-color)' }}>
-                              <button 
-                                onClick={() => handleCreateSala(alocacao.id)}
-                                className="btn btn-primary" 
-                                disabled={loading}
-                              >
-                                <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                                {loading ? 'Criando...' : 'Criar Sala'}
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setShowSalaForm(null);
-                                  setSalaForm({
-                                    nome: '',
-                                    capacidade_total: 0,
-                                    localizacao: '',
-                                    status: 'ATIVA',
-                                    cadeiras_moveis: 0,
-                                    cadeiras_especiais: 0,
-                                  });
-                                }}
-                                className="btn btn-secondary"
-                                disabled={loading}
-                              >
-                                <X size={16} style={{ marginRight: '6px' }} />
-                                Cancelar
-                              </button>
-                            </div>
-                          </form>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Horários da Alocação */}
@@ -801,7 +707,10 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                         Horários da Alocação
                       </h4>
                       <button
-                        onClick={() => setShowHorarioForm(alocacao.id)}
+                        onClick={() => {
+                          setSelectedAlocacaoId(alocacao.id);
+                          setShowHorarioModal(true);
+                        }}
                         className="btn btn-sm btn-primary"
                         disabled={loading}
                         title="Adicionar novo horário"
@@ -884,7 +793,10 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                    {/* Botão para adicionar turma */}
                                    <div className="pt-3 border-t border-gray-200 mt-3">
                                      <button
-                                       onClick={() => setShowTurmaForm(horario.id)}
+                                       onClick={() => {
+                                         setSelectedHorarioId(horario.id);
+                                         setShowTurmaModal(true);
+                                       }}
                                        className="btn btn-sm btn-outline-primary w-full flex items-center justify-center gap-2"
                                        disabled={loading}
                                      >
@@ -900,171 +812,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                       </div>
                     )}
 
-                    {/* Formulário para adicionar horário */}
-                    {showHorarioForm === alocacao.id && (
-                      <div className="card" style={{ marginTop: 'var(--spacing-4)', border: '2px solid #10b981' }}>
-                        <div className="card-header" style={{ backgroundColor: '#ecfdf5', borderBottom: '1px solid #d1fae5' }}>
-                          <h5 className="card-title flex items-center" style={{ gap: 'var(--spacing-2)', color: '#047857', margin: 0 }}>
-                            <Calendar size={18} />
-                            Adicionar Novo Horário
-                          </h5>
-                        </div>
-                        
-                        <div className="card-content">
-                          <form className="form">
-                            <div className="form-row">
-                              <div className="form-group">
-                                <label className="label">Dia da Semana *</label>
-                                <select
-                                  value={horarioForm.dia_semana}
-                                  onChange={(e) => setHorarioForm(prev => ({ ...prev, dia_semana: e.target.value as DiaSemana }))}
-                                  className="input"
-                                  required
-                                  disabled={loading}
-                                >
-                                  <option value="SEGUNDA">Segunda-feira</option>
-                                  <option value="TERCA">Terça-feira</option>
-                                  <option value="QUARTA">Quarta-feira</option>
-                                  <option value="QUINTA">Quinta-feira</option>
-                                  <option value="SEXTA">Sexta-feira</option>
-                                  <option value="SABADO">Sábado</option>
-                                </select>
-                              </div>
-                              <div className="form-group">
-                                <label className="label">Período *</label>
-                                <select
-                                  value={horarioForm.periodo}
-                                  onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
-                                  className="input"
-                                  required
-                                  disabled={loading}
-                                >
-                                  <option value="MATUTINO">Matutino</option>
-                                  <option value="VESPERTINO">Vespertino</option>
-                                  <option value="NOTURNO">Noturno</option>
-                                </select>
-                              </div>
-                            </div>
-                            
-                            <div className="flex" style={{ gap: 'var(--spacing-3)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--border-color)' }}>
-                              <button 
-                                onClick={() => handleCreateHorario(alocacao.id)}
-                                className="btn btn-primary" 
-                                disabled={loading}
-                              >
-                                <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                                {loading ? 'Criando...' : 'Criar Horário'}
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setShowHorarioForm(null);
-                                  setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
-                                }}
-                                className="btn btn-secondary"
-                                disabled={loading}
-                              >
-                                <X size={16} style={{ marginRight: '6px' }} />
-                                Cancelar
-                              </button>
-                            </div>
-                          </form>
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Formulário para adicionar turma */}
-                    {showTurmaForm && (
-                      <div className="card" style={{ marginTop: 'var(--spacing-4)', border: '2px solid #f59e0b' }}>
-                        <div className="card-header" style={{ backgroundColor: '#fffbeb', borderBottom: '1px solid #fed7aa' }}>
-                          <h5 className="card-title flex items-center" style={{ gap: 'var(--spacing-2)', color: '#92400e', margin: 0 }}>
-                            <Users size={18} />
-                            Adicionar Nova Turma
-                          </h5>
-                        </div>
-                        
-                        <div className="card-content">
-                          <form className="form">
-                            <div className="form-row">
-                              <div className="form-group">
-                                <label className="label">Nome da Turma *</label>
-                                <input
-                                  type="text"
-                                  value={turmaForm.nome}
-                                  onChange={(e) => setTurmaForm(prev => ({ ...prev, nome: e.target.value }))}
-                                  className="input"
-                                  placeholder="Ex: Engenharia Civil 3A"
-                                  required
-                                  disabled={loading}
-                                />
-                              </div>
-                              <div className="form-group">
-                                <label className="label">Número de Alunos *</label>
-                                <input
-                                  type="number"
-                                  value={turmaForm.alunos}
-                                  onChange={(e) => setTurmaForm(prev => ({ ...prev, alunos: Number(e.target.value) }))}
-                                  className="input"
-                                  min="1"
-                                  placeholder="30"
-                                  required
-                                  disabled={loading}
-                                />
-                              </div>
-                            </div>
-                            
-                            <div className="form-row">
-                              <div className="form-group">
-                                <label className="label">Duração (minutos)</label>
-                                <input
-                                  type="number"
-                                  value={turmaForm.duracao_min}
-                                  onChange={(e) => setTurmaForm(prev => ({ ...prev, duracao_min: Number(e.target.value) }))}
-                                  className="input"
-                                  min="0"
-                                  placeholder="60"
-                                  disabled={loading}
-                                />
-                              </div>
-                              <div className="form-group">
-                                <label className="label">Necessidades Especiais</label>
-                                <input
-                                  type="number"
-                                  value={turmaForm.esp_necessarias}
-                                  onChange={(e) => setTurmaForm(prev => ({ ...prev, esp_necessarias: Number(e.target.value) }))}
-                                  className="input"
-                                  min="0"
-                                  placeholder="0"
-                                  disabled={loading}
-                                />
-                                <small className="form-text">Alunos com necessidades especiais</small>
-                              </div>
-                            </div>
-                            
-                            <div className="flex" style={{ gap: 'var(--spacing-3)', paddingTop: 'var(--spacing-4)', borderTop: '1px solid var(--border-color)' }}>
-                              <button 
-                                onClick={() => handleCreateTurma(showTurmaForm)}
-                                className="btn btn-primary" 
-                                disabled={loading}
-                              >
-                                <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                                {loading ? 'Criando...' : 'Criar Turma'}
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setShowTurmaForm(null);
-                                  setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
-                                }}
-                                className="btn btn-secondary"
-                                disabled={loading}
-                              >
-                                <X size={16} style={{ marginRight: '6px' }} />
-                                Cancelar
-                              </button>
-                            </div>
-                          </form>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1072,6 +820,305 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           ))
         )}
       </div>
+
+      {/* Modal para Adicionar Sala */}
+      {showSalaModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="card-header bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
+              <h2 className="card-title text-white flex items-center gap-2 text-xl">
+                <Buildings size={24} />
+                Adicionar Nova Sala
+              </h2>
+            </div>
+            
+            <div className="p-6">
+              <form className="form">
+                {/* Linha 1: Nome e Capacidade */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Nome da Sala *</label>
+                    <input
+                      type="text"
+                      value={salaForm.nome}
+                      onChange={(e) => setSalaForm(prev => ({ ...prev, nome: e.target.value }))}
+                      className="input"
+                      placeholder="Ex: Sala A1, Laboratório"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Capacidade Total *</label>
+                    <input
+                      type="number"
+                      value={salaForm.capacidade_total}
+                      onChange={(e) => setSalaForm(prev => ({ ...prev, capacidade_total: Number(e.target.value) }))}
+                      className="input"
+                      min="1"
+                      placeholder="30"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                
+                {/* Linha 2: Localização */}
+                <div className="form-group">
+                  <label className="label">Localização</label>
+                  <input
+                    type="text"
+                    value={salaForm.localizacao}
+                    onChange={(e) => setSalaForm(prev => ({ ...prev, localizacao: e.target.value }))}
+                    className="input"
+                    placeholder="Ex: Bloco A - 2º andar"
+                    disabled={loading}
+                  />
+                </div>
+                
+                {/* Linha 3: Cadeiras Especiais e Móveis */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Cadeiras Especiais</label>
+                    <input
+                      type="number"
+                      value={salaForm.cadeiras_especiais}
+                      onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_especiais: Number(e.target.value) }))}
+                      className="input"
+                      min="0"
+                      placeholder="0"
+                      disabled={loading}
+                    />
+                    <small className="form-text">Para alunos com necessidades especiais</small>
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Cadeiras Móveis</label>
+                    <input
+                      type="number"
+                      value={salaForm.cadeiras_moveis}
+                      onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_moveis: Number(e.target.value) }))}
+                      className="input"
+                      min="0"
+                      placeholder="0"
+                      disabled={loading}
+                    />
+                    <small className="form-text">Cadeiras que podem ser remanejadas</small>
+                  </div>
+                </div>
+                
+                {/* Botões */}
+                <div className="flex gap-4 pt-6 border-t border-gray-200">
+                  <button 
+                    type="button"
+                    onClick={handleCreateSala}
+                    className="btn btn-primary flex-1" 
+                    disabled={loading}
+                  >
+                    <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+                    {loading ? 'Criando...' : 'Criar Sala'}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowSalaModal(false);
+                      setSelectedAlocacaoId(null);
+                      setSalaForm({
+                        nome: '',
+                        capacidade_total: 0,
+                        localizacao: '',
+                        status: 'ATIVA',
+                        cadeiras_moveis: 0,
+                        cadeiras_especiais: 0,
+                      });
+                    }}
+                    className="btn btn-secondary"
+                    disabled={loading}
+                  >
+                    <X size={16} style={{ marginRight: '6px' }} />
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Adicionar Horário */}
+      {showHorarioModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+            <div className="card-header bg-gradient-to-r from-green-600 to-green-700 text-white rounded-t-lg">
+              <h2 className="card-title text-white flex items-center gap-2 text-xl">
+                <Calendar size={24} />
+                Adicionar Novo Horário
+              </h2>
+            </div>
+            
+            <div className="p-6">
+              <form className="form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Dia da Semana *</label>
+                    <select
+                      value={horarioForm.dia_semana}
+                      onChange={(e) => setHorarioForm(prev => ({ ...prev, dia_semana: e.target.value as DiaSemana }))}
+                      className="input"
+                      required
+                      disabled={loading}
+                    >
+                      <option value="SEGUNDA">Segunda-feira</option>
+                      <option value="TERCA">Terça-feira</option>
+                      <option value="QUARTA">Quarta-feira</option>
+                      <option value="QUINTA">Quinta-feira</option>
+                      <option value="SEXTA">Sexta-feira</option>
+                      <option value="SABADO">Sábado</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Período *</label>
+                    <select
+                      value={horarioForm.periodo}
+                      onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
+                      className="input"
+                      required
+                      disabled={loading}
+                    >
+                      <option value="MATUTINO">Matutino</option>
+                      <option value="VESPERTINO">Vespertino</option>
+                      <option value="NOTURNO">Noturno</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 pt-6 border-t border-gray-200">
+                  <button 
+                    type="button"
+                    onClick={handleCreateHorario}
+                    className="btn btn-primary flex-1" 
+                    disabled={loading}
+                  >
+                    <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+                    {loading ? 'Criando...' : 'Criar Horário'}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowHorarioModal(false);
+                      setSelectedAlocacaoId(null);
+                      setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+                    }}
+                    className="btn btn-secondary"
+                    disabled={loading}
+                  >
+                    <X size={16} style={{ marginRight: '6px' }} />
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Adicionar Turma */}
+      {showTurmaModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
+            <div className="card-header bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-t-lg">
+              <h2 className="card-title text-white flex items-center gap-2 text-xl">
+                <Users size={24} />
+                Adicionar Nova Turma
+              </h2>
+            </div>
+            
+            <div className="p-6">
+              <form className="form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Nome da Turma *</label>
+                    <input
+                      type="text"
+                      value={turmaForm.nome}
+                      onChange={(e) => setTurmaForm(prev => ({ ...prev, nome: e.target.value }))}
+                      className="input"
+                      placeholder="Ex: Engenharia Civil 3A"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Número de Alunos *</label>
+                    <input
+                      type="number"
+                      value={turmaForm.alunos}
+                      onChange={(e) => setTurmaForm(prev => ({ ...prev, alunos: Number(e.target.value) }))}
+                      className="input"
+                      min="1"
+                      placeholder="30"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Duração (minutos)</label>
+                    <input
+                      type="number"
+                      value={turmaForm.duracao_min}
+                      onChange={(e) => setTurmaForm(prev => ({ ...prev, duracao_min: Number(e.target.value) }))}
+                      className="input"
+                      min="0"
+                      placeholder="60"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Necessidades Especiais</label>
+                    <input
+                      type="number"
+                      value={turmaForm.esp_necessarias}
+                      onChange={(e) => setTurmaForm(prev => ({ ...prev, esp_necessarias: Number(e.target.value) }))}
+                      className="input"
+                      min="0"
+                      placeholder="0"
+                      disabled={loading}
+                    />
+                    <small className="form-text">Alunos com necessidades especiais</small>
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 pt-6 border-t border-gray-200">
+                  <button 
+                    type="button"
+                    onClick={handleCreateTurma}
+                    className="btn btn-primary flex-1" 
+                    disabled={loading}
+                  >
+                    <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+                    {loading ? 'Criando...' : 'Criar Turma'}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowTurmaModal(false);
+                      setSelectedHorarioId(null);
+                      setTurmaForm({ nome: '', alunos: 0, duracao_min: 0, esp_necessarias: 0 });
+                    }}
+                    className="btn btn-secondary"
+                    disabled={loading}
+                  >
+                    <X size={16} style={{ marginRight: '6px' }} />
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
