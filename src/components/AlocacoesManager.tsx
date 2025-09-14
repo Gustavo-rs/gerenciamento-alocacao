@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Users, Brain, ChartBar } from 'phosphor-react';
+import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Users, Brain, ChartBar, Copy } from 'phosphor-react';
 import type { Sala, FormSala, Horario, FormHorario, DiaSemana, Periodo, AlocacaoPrincipal, Turma, FormTurma } from '../types';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
@@ -50,7 +50,9 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
   const [selectedAlocacaoId, setSelectedAlocacaoId] = useState<string | null>(null);
   const [showHorarioModal, setShowHorarioModal] = useState(false);
   const [showTurmaModal, setShowTurmaModal] = useState(false);
+  const [showCloneHorarioModal, setShowCloneHorarioModal] = useState(false);
   const [selectedHorarioId, setSelectedHorarioId] = useState<string | null>(null);
+  const [cloneHorarioData, setCloneHorarioData] = useState<{horario: Horario; alocacao: AlocacaoPrincipal} | null>(null);
 
   // Estados para confirmação
   const [confirmModal, setConfirmModal] = useState({ 
@@ -546,6 +548,64 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     } catch (error) {
       console.error('Erro ao atualizar turma:', error);
       toast.error('Erro', 'Erro ao atualizar turma');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloneHorario = (horario: Horario, alocacao: AlocacaoPrincipal) => {
+    if (horario.turmas.length === 0) {
+      toast.warning('Atenção', 'Este horário não possui turmas para clonar');
+      return;
+    }
+
+    setCloneHorarioData({ horario, alocacao });
+    setHorarioForm({
+      dia_semana: 'SEGUNDA',
+      periodo: 'MATUTINO'
+    });
+    setShowCloneHorarioModal(true);
+  };
+
+  const handleExecuteClone = async () => {
+    if (!cloneHorarioData) return;
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(`http://localhost:3001/api/horarios/${cloneHorarioData.horario.id}/clone`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          alocacao_id: cloneHorarioData.alocacao.id,
+          dia_semana: horarioForm.dia_semana,
+          periodo: horarioForm.periodo
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Sucesso', `Horário clonado com ${cloneHorarioData.horario.turmas.length} turma${cloneHorarioData.horario.turmas.length > 1 ? 's' : ''}!`);
+        
+        // Reset e fechar modal
+        setCloneHorarioData(null);
+        setShowCloneHorarioModal(false);
+        setHorarioForm({
+          dia_semana: 'SEGUNDA',
+          periodo: 'MATUTINO'
+        });
+        
+        // Reload data
+        loadAlocacoes();
+      } else {
+        toast.error('Erro', data.error || 'Erro ao clonar horário');
+      }
+    } catch (error) {
+      console.error('Erro ao clonar horário:', error);
+      toast.error('Erro', 'Erro ao clonar horário');
     } finally {
       setLoading(false);
     }
@@ -1064,8 +1124,8 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                     </div>
                                   )}
                                   
-                                   {/* Botão para adicionar turma */}
-                                   <div className="pt-3 border-t border-gray-200 mt-3">
+                                   {/* Botões de ação do horário */}
+                                   <div className="pt-3 border-t border-gray-200 mt-3 space-y-2">
                                      <button
                                        onClick={() => {
                                          setSelectedHorarioId(horario.id);
@@ -1077,6 +1137,18 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                        <Users size={16} />
                                        Adicionar Nova Turma
                                      </button>
+                                     
+                                     {horario.turmas.length > 0 && (
+                                       <button
+                                         onClick={() => handleCloneHorario(horario, alocacao)}
+                                         className="btn btn-sm btn-outline-secondary w-full flex items-center justify-center gap-2"
+                                         disabled={loading}
+                                         title="Clonar este horário com todas as turmas"
+                                       >
+                                         <Copy size={16} />
+                                         Clonar Horário
+                                       </button>
+                                     )}
                                    </div>
                                 </div>
                               </div>
@@ -1427,6 +1499,118 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         title={processingModal.title}
         message={processingModal.message}
       />
+
+      {/* Modal para Clonar Horário */}
+      <Modal
+        isOpen={showCloneHorarioModal}
+        onClose={() => {
+          setShowCloneHorarioModal(false);
+          setCloneHorarioData(null);
+          setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+        }}
+        title="Clonar Horário"
+        size="md"
+      >
+        {cloneHorarioData && (
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                <Copy size={18} />
+                Horário a ser clonado:
+              </h4>
+              <div className="flex items-center gap-3">
+                <span className="badge badge-primary">
+                  {diasLabels[cloneHorarioData.horario.dia_semana]}
+                </span>
+                <span className="badge badge-secondary">
+                  {periodosLabels[cloneHorarioData.horario.periodo]}
+                </span>
+                <span className="badge badge-info">
+                  {cloneHorarioData.horario.turmas.length} {cloneHorarioData.horario.turmas.length === 1 ? 'turma' : 'turmas'}
+                </span>
+              </div>
+              <div className="mt-3">
+                <p className="text-sm text-gray-600">
+                  <strong>Turmas que serão clonadas:</strong>
+                </p>
+                <div className="mt-1 space-y-1">
+                  {cloneHorarioData.horario.turmas.map((turma) => (
+                    <div key={turma.id} className="text-sm text-gray-700">
+                      • {turma.nome} ({turma.alunos} alunos{turma.esp_necessarias > 0 ? `, ${turma.esp_necessarias} especiais` : ''})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleExecuteClone();
+              }} 
+              className="form"
+            >
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="label">Novo Dia da Semana *</label>
+                  <select
+                    value={horarioForm.dia_semana}
+                    onChange={(e) => setHorarioForm(prev => ({ ...prev, dia_semana: e.target.value as DiaSemana }))}
+                    className="input"
+                    required
+                    disabled={loading}
+                  >
+                    <option value="SEGUNDA">Segunda-feira</option>
+                    <option value="TERCA">Terça-feira</option>
+                    <option value="QUARTA">Quarta-feira</option>
+                    <option value="QUINTA">Quinta-feira</option>
+                    <option value="SEXTA">Sexta-feira</option>
+                    <option value="SABADO">Sábado</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="label">Novo Período *</label>
+                  <select
+                    value={horarioForm.periodo}
+                    onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
+                    className="input"
+                    required
+                    disabled={loading}
+                  >
+                    <option value="MATUTINO">Matutino</option>
+                    <option value="VESPERTINO">Vespertino</option>
+                    <option value="NOTURNO">Noturno</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex gap-4 pt-6 border-t border-gray-200">
+                <button 
+                  type="submit"
+                  className="btn btn-primary flex-1" 
+                  disabled={loading}
+                >
+                  <Copy size={16} style={{ marginRight: '6px' }} />
+                  {loading ? 'Clonando...' : 'Clonar Horário'}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowCloneHorarioModal(false);
+                    setCloneHorarioData(null);
+                    setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+                  }}
+                  className="btn btn-secondary"
+                  disabled={loading}
+                >
+                  <X size={16} style={{ marginRight: '6px' }} />
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
