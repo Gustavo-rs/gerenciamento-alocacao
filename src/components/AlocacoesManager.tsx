@@ -419,15 +419,15 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       if (data.success) {
         // Se temos uma alocação selecionada, adicionar a sala à alocação
         if (selectedAlocacaoId) {
-          const alocacaoResponse = await fetch(`http://localhost:3001/api/alocacoes/${selectedAlocacaoId}/salas`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+      const alocacaoResponse = await fetch(`http://localhost:3001/api/alocacoes/${selectedAlocacaoId}/salas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sala_id: data.data.id })
-          });
+      });
 
-          const alocacaoData = await alocacaoResponse.json();
-          
-          if (alocacaoData.success) {
+      const alocacaoData = await alocacaoResponse.json();
+      
+      if (alocacaoData.success) {
             toast.success('Sucesso', 'Sala criada e adicionada à alocação com sucesso!');
           } else {
             toast.error('Erro', alocacaoData.error || 'Erro ao adicionar sala à alocação');
@@ -477,7 +477,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       });
 
       const data = await response.json();
-
+      
       if (data.success) {
         toast.success('Sucesso', 'Sala atualizada com sucesso!');
         
@@ -567,6 +567,28 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     setShowCloneHorarioModal(true);
   };
 
+  // Função para obter combinações de dia/período disponíveis
+  const getAvailableOptions = (alocacao: AlocacaoPrincipal, excludeHorarioId?: string) => {
+    const existingCombinations = alocacao.horarios
+      .filter(h => h.id !== excludeHorarioId) // Excluir horário atual se fornecido (para edição)
+      .map(h => `${h.dia_semana}_${h.periodo}`);
+    
+    const allDias: DiaSemana[] = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'];
+    const allPeriodos: Periodo[] = ['MATUTINO', 'VESPERTINO', 'NOTURNO'];
+    
+    const availableDias = allDias.filter(dia => 
+      allPeriodos.some(periodo => !existingCombinations.includes(`${dia}_${periodo}`))
+    );
+    
+    const getAvailablePeríodos = (selectedDia: DiaSemana) => {
+      return allPeriodos.filter(periodo => 
+        !existingCombinations.includes(`${selectedDia}_${periodo}`)
+      );
+    };
+    
+    return { availableDias, getAvailablePeríodos };
+  };
+
   const handleExecuteClone = async () => {
     if (!cloneHorarioData) return;
 
@@ -609,6 +631,44 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteHorario = (horario: Horario) => {
+    const turmasCount = horario.turmas.length;
+    const turmasInfo = turmasCount > 0 
+      ? ` Isso também removerá ${turmasCount} turma${turmasCount > 1 ? 's' : ''} associada${turmasCount > 1 ? 's' : ''} a este horário.`
+      : '';
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Deletar Horário',
+      message: `Tem certeza que deseja deletar o horário "${diasLabels[horario.dia_semana]} ${periodosLabels[horario.periodo]}"?${turmasInfo} Esta ação não pode ser desfeita.`,
+      type: 'danger',
+      confirmText: 'Deletar',
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        setLoading(true);
+        try {
+          const response = await fetch(`http://localhost:3001/api/horarios/${horario.id}`, {
+            method: 'DELETE'
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+        await loadAlocacoes();
+            toast.success('Sucesso!', `Horário deletado${turmasCount > 0 ? ` com ${turmasCount} turma${turmasCount > 1 ? 's' : ''}` : ''}`);
+      } else {
+            toast.error('Erro', data.error || 'Erro ao deletar horário');
+      }
+    } catch (error) {
+          console.error('Erro ao deletar horário:', error);
+          toast.error('Erro', 'Erro ao deletar horário');
+    } finally {
+      setLoading(false);
+    }
+      }
+    });
   };
 
   const handleRemoveTurma = (horario: Horario, turma: Turma) => {
@@ -1149,6 +1209,16 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                                          Clonar Horário
                                        </button>
                                      )}
+                                     
+                                     <button
+                                       onClick={() => handleDeleteHorario(horario)}
+                                       className="btn btn-sm btn-outline-danger w-full flex items-center justify-center gap-2"
+                                       disabled={loading}
+                                       title="Deletar este horário e todas as suas turmas"
+                                     >
+                                       <Trash size={16} />
+                                       Deletar Horário
+                                     </button>
                                    </div>
                                 </div>
                               </div>
@@ -1173,77 +1243,105 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         isOpen={showHorarioModal}
         onClose={() => {
           setShowHorarioModal(false);
-                      setSelectedAlocacaoId(null);
+          setSelectedAlocacaoId(null);
           setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
         }}
         title="Adicionar Novo Horário"
         size="md"
       >
-        <form 
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleCreateHorario();
-          }} 
-          className="form"
-        >
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="label">Dia da Semana *</label>
-                    <select
-                      value={horarioForm.dia_semana}
-                      onChange={(e) => setHorarioForm(prev => ({ ...prev, dia_semana: e.target.value as DiaSemana }))}
-                      className="input"
-                      required
+        {selectedAlocacaoId && (() => {
+          const selectedAlocacao = alocacoes.find(a => a.id === selectedAlocacaoId);
+          if (!selectedAlocacao) return null;
+          
+          const { availableDias, getAvailablePeríodos } = getAvailableOptions(selectedAlocacao);
+          const availablePeríodos = getAvailablePeríodos(horarioForm.dia_semana);
+          
+          return (
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateHorario();
+              }} 
+              className="form"
+            >
+              {availableDias.length === 0 ? (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Todos os horários possíveis já foram criados para esta alocação.</strong>
+                  </p>
+                  <p className="text-xs text-yellow-600 mt-1">
+                    Cada combinação de dia da semana e período pode ter apenas um horário.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="label">Dia da Semana *</label>
+                      <select
+                        value={horarioForm.dia_semana}
+                        onChange={(e) => {
+                          const newDia = e.target.value as DiaSemana;
+                          const newAvailablePeríodos = getAvailablePeríodos(newDia);
+                          setHorarioForm(prev => ({ 
+                            ...prev, 
+                            dia_semana: newDia,
+                            periodo: newAvailablePeríodos.includes(prev.periodo) ? prev.periodo : newAvailablePeríodos[0] || 'MATUTINO'
+                          }));
+                        }}
+                        className="input"
+                        required
+                        disabled={loading}
+                      >
+                        {availableDias.map(dia => (
+                          <option key={dia} value={dia}>{diasLabels[dia]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="label">Período *</label>
+                      <select
+                        value={horarioForm.periodo}
+                        onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
+                        className="input"
+                        required
+                        disabled={loading}
+                      >
+                        {availablePeríodos.map(periodo => (
+                          <option key={periodo} value={periodo}>{periodosLabels[periodo]}</option>
+                        ))}
+                      </select>
+                    </div>
+            </div>
+            
+                  <div className="flex gap-4 pt-6 border-t border-gray-200">
+                    <button 
+                      type="submit"
+                      className="btn btn-primary flex-1" 
                       disabled={loading}
                     >
-                      <option value="SEGUNDA">Segunda-feira</option>
-                      <option value="TERCA">Terça-feira</option>
-                      <option value="QUARTA">Quarta-feira</option>
-                      <option value="QUINTA">Quinta-feira</option>
-                      <option value="SEXTA">Sexta-feira</option>
-                      <option value="SABADO">Sábado</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="label">Período *</label>
-                    <select
-                      value={horarioForm.periodo}
-                      onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
-                      className="input"
-                      required
+                      <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+                      {loading ? 'Criando...' : 'Criar Horário'}
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setShowHorarioModal(false);
+                        setSelectedAlocacaoId(null);
+                        setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+                      }}
+                      className="btn btn-secondary"
                       disabled={loading}
                     >
-                      <option value="MATUTINO">Matutino</option>
-                      <option value="VESPERTINO">Vespertino</option>
-                      <option value="NOTURNO">Noturno</option>
-                    </select>
+                      <X size={16} style={{ marginRight: '6px' }} />
+                      Cancelar
+                    </button>
                   </div>
-                </div>
-                
-                <div className="flex gap-4 pt-6 border-t border-gray-200">
-                  <button 
-              type="submit"
-                    className="btn btn-primary flex-1" 
-                    disabled={loading}
-                  >
-                    <FloppyDisk size={16} style={{ marginRight: '6px' }} />
-                    {loading ? 'Criando...' : 'Criar Horário'}
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setShowHorarioModal(false);
-                      setSelectedAlocacaoId(null);
-                      setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
-                    }}
-                    className="btn btn-secondary"
-                    disabled={loading}
-                  >
-                    <X size={16} style={{ marginRight: '6px' }} />
-                    Cancelar
-                  </button>
-                </div>
-              </form>
+                </>
+              )}
+            </form>
+          );
+        })()}
       </Modal>
 
       {/* Modal para Adicionar Turma */}
@@ -1368,110 +1466,110 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           }} 
           className="form"
         >
-          {/* Linha 1: Nome e Capacidade */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="label">Nome da Sala *</label>
-              <input
-                type="text"
-                value={salaForm.nome}
-                onChange={(e) => setSalaForm(prev => ({ ...prev, nome: e.target.value }))}
-                className="input"
-                placeholder="Ex: Sala A1, Laboratório"
-                required
-                disabled={loading}
-              />
-            </div>
-            <div className="form-group">
-              <label className="label">Capacidade Total *</label>
-              <input
-                type="number"
-                value={salaForm.capacidade_total}
-                onChange={(e) => setSalaForm(prev => ({ ...prev, capacidade_total: Number(e.target.value) }))}
-                className="input"
-                min="1"
-                placeholder="30"
-                required
-                disabled={loading}
-              />
-          </div>
-        </div>
-          
-          {/* Linha 2: Localização */}
-          <div className="form-group">
-            <label className="label">Localização</label>
-            <input
-              type="text"
-              value={salaForm.localizacao}
-              onChange={(e) => setSalaForm(prev => ({ ...prev, localizacao: e.target.value }))}
-              className="input"
-              placeholder="Ex: Bloco A - 2º andar"
-              disabled={loading}
-            />
-          </div>
-          
-          {/* Linha 3: Cadeiras Especiais e Móveis */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="label">Cadeiras Especiais</label>
-              <input
-                type="number"
-                value={salaForm.cadeiras_especiais}
-                onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_especiais: Number(e.target.value) }))}
-                className="input"
-                min="0"
-                placeholder="0"
-                disabled={loading}
-              />
-              <small className="form-text">Para alunos com necessidades especiais</small>
-            </div>
-            <div className="form-group">
+                {/* Linha 1: Nome e Capacidade */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Nome da Sala *</label>
+                    <input
+                      type="text"
+                      value={salaForm.nome}
+                      onChange={(e) => setSalaForm(prev => ({ ...prev, nome: e.target.value }))}
+                      className="input"
+                      placeholder="Ex: Sala A1, Laboratório"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Capacidade Total *</label>
+                    <input
+                      type="number"
+                      value={salaForm.capacidade_total}
+                      onChange={(e) => setSalaForm(prev => ({ ...prev, capacidade_total: Number(e.target.value) }))}
+                      className="input"
+                      min="1"
+                      placeholder="30"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                
+                {/* Linha 2: Localização */}
+                <div className="form-group">
+                  <label className="label">Localização</label>
+                  <input
+                    type="text"
+                    value={salaForm.localizacao}
+                    onChange={(e) => setSalaForm(prev => ({ ...prev, localizacao: e.target.value }))}
+                    className="input"
+                    placeholder="Ex: Bloco A - 2º andar"
+                    disabled={loading}
+                  />
+                </div>
+                
+                {/* Linha 3: Cadeiras Especiais e Móveis */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Cadeiras Especiais</label>
+                    <input
+                      type="number"
+                      value={salaForm.cadeiras_especiais}
+                      onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_especiais: Number(e.target.value) }))}
+                      className="input"
+                      min="0"
+                      placeholder="0"
+                      disabled={loading}
+                    />
+                    <small className="form-text">Para alunos com necessidades especiais</small>
+                  </div>
+                  <div className="form-group">
               <label className="checkbox-container">
-                <input
+                    <input
                   type="checkbox"
                   checked={salaForm.cadeiras_moveis}
                   onChange={(e) => setSalaForm(prev => ({ ...prev, cadeiras_moveis: e.target.checked }))}
-                  disabled={loading}
-                />
+                      disabled={loading}
+                    />
                 <span className="label">Cadeiras Móveis</span>
               </label>
               <small className="form-text">Cadeiras podem ser emprestadas para outras salas</small>
-            </div>
-          </div>
-          
-          {/* Botões */}
-          <div className="flex gap-4 pt-6 border-t border-gray-200">
-            <button 
+                  </div>
+                </div>
+                
+                {/* Botões */}
+                <div className="flex gap-4 pt-6 border-t border-gray-200">
+                  <button 
               type="submit"
-              className="btn btn-primary flex-1" 
-              disabled={loading}
-            >
-              <FloppyDisk size={16} style={{ marginRight: '6px' }} />
+                    className="btn btn-primary flex-1" 
+                    disabled={loading}
+                  >
+                    <FloppyDisk size={16} style={{ marginRight: '6px' }} />
               {loading ? (editingSala ? 'Atualizando...' : 'Criando...') : (editingSala ? 'Atualizar Sala' : 'Criar Sala')}
-            </button>
-            <button 
-              type="button"
-              onClick={() => {
-                setShowSalaModal(false);
-                setSelectedAlocacaoId(null);
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowSalaModal(false);
+                      setSelectedAlocacaoId(null);
                 setEditingSala(null);
-                setSalaForm({
-                  nome: '',
-                  capacidade_total: 0,
-                  localizacao: '',
-                  status: 'ATIVA',
+                      setSalaForm({
+                        nome: '',
+                        capacidade_total: 0,
+                        localizacao: '',
+                        status: 'ATIVA',
                   cadeiras_moveis: false,
-                  cadeiras_especiais: 0,
-                });
-              }}
-              className="btn btn-secondary"
-              disabled={loading}
-            >
-              <X size={16} style={{ marginRight: '6px' }} />
-              Cancelar
-            </button>
-          </div>
-        </form>
+                        cadeiras_especiais: 0,
+                      });
+                    }}
+                    className="btn btn-secondary"
+                    disabled={loading}
+                  >
+                    <X size={16} style={{ marginRight: '6px' }} />
+                    Cancelar
+                  </button>
+                </div>
+              </form>
       </Modal>
 
       {/* Modal de Confirmação */}
@@ -1528,7 +1626,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                 <span className="badge badge-info">
                   {cloneHorarioData.horario.turmas.length} {cloneHorarioData.horario.turmas.length === 1 ? 'turma' : 'turmas'}
                 </span>
-              </div>
+            </div>
               <div className="mt-3">
                 <p className="text-sm text-gray-600">
                   <strong>Turmas que serão clonadas:</strong>
@@ -1537,77 +1635,102 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                   {cloneHorarioData.horario.turmas.map((turma) => (
                     <div key={turma.id} className="text-sm text-gray-700">
                       • {turma.nome} ({turma.alunos} alunos{turma.esp_necessarias > 0 ? `, ${turma.esp_necessarias} especiais` : ''})
-                    </div>
+          </div>
                   ))}
-                </div>
+        </div>
               </div>
             </div>
-
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleExecuteClone();
-              }} 
-              className="form"
-            >
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="label">Novo Dia da Semana *</label>
-                  <select
-                    value={horarioForm.dia_semana}
-                    onChange={(e) => setHorarioForm(prev => ({ ...prev, dia_semana: e.target.value as DiaSemana }))}
-                    className="input"
-                    required
-                    disabled={loading}
-                  >
-                    <option value="SEGUNDA">Segunda-feira</option>
-                    <option value="TERCA">Terça-feira</option>
-                    <option value="QUARTA">Quarta-feira</option>
-                    <option value="QUINTA">Quinta-feira</option>
-                    <option value="SEXTA">Sexta-feira</option>
-                    <option value="SABADO">Sábado</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="label">Novo Período *</label>
-                  <select
-                    value={horarioForm.periodo}
-                    onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
-                    className="input"
-                    required
-                    disabled={loading}
-                  >
-                    <option value="MATUTINO">Matutino</option>
-                    <option value="VESPERTINO">Vespertino</option>
-                    <option value="NOTURNO">Noturno</option>
-                  </select>
-                </div>
-              </div>
+            
+            {(() => {
+              const { availableDias, getAvailablePeríodos } = getAvailableOptions(cloneHorarioData.alocacao);
+              const availablePeríodos = getAvailablePeríodos(horarioForm.dia_semana);
               
-              <div className="flex gap-4 pt-6 border-t border-gray-200">
-                <button 
-                  type="submit"
-                  className="btn btn-primary flex-1" 
-                  disabled={loading}
+              return (
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleExecuteClone();
+                  }} 
+                  className="form"
                 >
-                  <Copy size={16} style={{ marginRight: '6px' }} />
-                  {loading ? 'Clonando...' : 'Clonar Horário'}
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    setShowCloneHorarioModal(false);
-                    setCloneHorarioData(null);
-                    setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
-                  }}
-                  className="btn btn-secondary"
-                  disabled={loading}
-                >
-                  <X size={16} style={{ marginRight: '6px' }} />
-                  Cancelar
-                </button>
-              </div>
-            </form>
+                  {availableDias.length === 0 ? (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Não há horários disponíveis para clonar.</strong>
+                      </p>
+                      <p className="text-xs text-yellow-600 mt-1">
+                        Todos os possíveis horários já foram criados nesta alocação.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label className="label">Novo Dia da Semana *</label>
+                          <select
+                            value={horarioForm.dia_semana}
+                            onChange={(e) => {
+                              const newDia = e.target.value as DiaSemana;
+                              const newAvailablePeríodos = getAvailablePeríodos(newDia);
+                              setHorarioForm(prev => ({ 
+                                ...prev, 
+                                dia_semana: newDia,
+                                periodo: newAvailablePeríodos.includes(prev.periodo) ? prev.periodo : newAvailablePeríodos[0] || 'MATUTINO'
+                              }));
+                            }}
+                            className="input"
+                            required
+                            disabled={loading}
+                          >
+                            {availableDias.map(dia => (
+                              <option key={dia} value={dia}>{diasLabels[dia]}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label className="label">Novo Período *</label>
+                          <select
+                            value={horarioForm.periodo}
+                            onChange={(e) => setHorarioForm(prev => ({ ...prev, periodo: e.target.value as Periodo }))}
+                            className="input"
+                            required
+                            disabled={loading}
+                          >
+                            {availablePeríodos.map(periodo => (
+                              <option key={periodo} value={periodo}>{periodosLabels[periodo]}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-4 pt-6 border-t border-gray-200">
+                        <button 
+                          type="submit"
+                          className="btn btn-primary flex-1" 
+                          disabled={loading}
+                        >
+                          <Copy size={16} style={{ marginRight: '6px' }} />
+                          {loading ? 'Clonando...' : 'Clonar Horário'}
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setShowCloneHorarioModal(false);
+                            setCloneHorarioData(null);
+                            setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+                          }}
+                          className="btn btn-secondary"
+                          disabled={loading}
+                        >
+                          <X size={16} style={{ marginRight: '6px' }} />
+                          Cancelar
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </form>
+              );
+            })()}
           </div>
         )}
       </Modal>

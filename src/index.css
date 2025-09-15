@@ -837,3 +837,30 @@ body {
 .text-gray-700 {
   color: #374151;
 }
+
+.bg-yellow-50 {
+  background-color: #fffbeb;
+}
+
+.border-yellow-200 {
+  border-color: #fde68a;
+}
+
+.text-yellow-800 {
+  color: #92400e;
+}
+
+.text-yellow-600 {
+  color: #d97706;
+}
+
+.btn-outline-danger {
+  color: var(--danger-color);
+  border: 1px solid var(--danger-color);
+  background-color: transparent;
+}
+
+.btn-outline-danger:hover {
+  background-color: var(--danger-color);
+  color: white;
+}
