@@ -1,5 +1,4 @@
-import { useApp } from '../context/AppContext';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Buildings, 
   Users, 
@@ -14,17 +13,72 @@ import {
 } from 'phosphor-react';
 import { SkeletonDashboardStats, SkeletonDashboardSections, SkeletonDashboardExport } from './Skeleton';
 
-export default function Dashboard() {
-  const { state, loadProjetos, loadResultados } = useApp();
+interface DashboardStats {
+  totalAlocacoes: number;
+  alocacoesAtivas: number;
+  totalSalas: number;
+  salasAtivas: number;
+  totalTurmas: number;
+  totalAlunos: number;
+  capacidadeTotal: number;
+  cadeirasEspeciais: number;
+  resultadosGerados: number;
+}
 
-  // Carregar dados quando o componente monta
+interface AlocacaoProblematica {
+  id: string;
+  nome: string;
+  salas: number;
+  horarios: number;
+}
+
+interface AlocacaoCompatibilidade {
+  id: string;
+  nome: string;
+  salas: number;
+  horarios: number;
+  temResultados: boolean;
+}
+
+interface DashboardData {
+  stats: DashboardStats;
+  alocacoesProblematicas: AlocacaoProblematica[];
+  alocacoesCompatibilidade: AlocacaoCompatibilidade[];
+}
+
+export default function Dashboard() {
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Carregar dados do dashboard
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch('http://localhost:3001/api/dashboard/stats');
+      const data = await response.json();
+
+      if (data.success) {
+        setDashboardData(data.data);
+      } else {
+        setError(data.error || 'Erro ao carregar dados do dashboard');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dashboard:', error);
+      setError('Erro ao conectar com o servidor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    loadProjetos();
-    loadResultados();
-  }, []); // SEM DEPENDÊNCIAS - roda apenas UMA VEZ
+    loadDashboardData();
+  }, []);
 
   // Mostrar skeleton durante loading
-  if (state.loading) {
+  if (loading) {
     return (
       <div className="grid gap-6">
         <SkeletonDashboardStats />
@@ -34,25 +88,32 @@ export default function Dashboard() {
     );
   }
 
-  // Calcular estatísticas agregadas de todos os projetos
-  const todasSalas = state.projetos.flatMap(p => p.salas);
-  const todasTurmas = state.projetos.flatMap(p => p.turmas);
+  // Mostrar erro se houver
+  if (error || !dashboardData) {
+    return (
+      <div className="grid gap-6">
+        <div className="card">
+          <div className="card-content">
+            <div className="text-center py-8">
+              <Warning size={48} color="var(--danger-color)" style={{ marginBottom: '16px' }} />
+              <h3 className="text-lg font-semibold mb-2">Erro ao carregar dados</h3>
+              <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+                {error || 'Não foi possível carregar os dados do dashboard'}
+              </p>
+              <button 
+                onClick={loadDashboardData}
+                className="btn btn-primary"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const stats = {
-    totalAlocacoes: state.projetos.length,
-    alocacoesAtivas: state.projetos.filter(p => p.status === 'CONFIGURACAO' || p.status === 'PRONTO').length,
-    totalSalas: todasSalas.length,
-    salasAtivas: todasSalas.filter(s => s.status === 'ATIVA').length,
-    totalTurmas: todasTurmas.length,
-    totalAlunos: todasTurmas.reduce((acc, t) => acc + t.alunos, 0),
-    capacidadeTotal: todasSalas.reduce((acc, s) => acc + s.capacidade_total, 0),
-    cadeirasEspeciais: todasSalas.reduce((acc, s) => acc + s.cadeiras_especiais, 0),
-    resultadosGerados: state.resultados_alocacao.length,
-  };
-
-  const projetosProblematicos = state.projetos.filter(projeto => 
-    projeto.salas.length === 0 || projeto.turmas.length === 0
-  );
+  const { stats, alocacoesProblematicas, alocacoesCompatibilidade } = dashboardData;
 
   return (
     <div className="grid gap-6">
@@ -138,7 +199,7 @@ export default function Dashboard() {
             <p className="card-description">Problemas que precisam de atenção</p>
           </div>
           <div className="card-content">
-            {projetosProblematicos.length === 0 ? (
+            {alocacoesProblematicas.length === 0 ? (
               <div className="text-center" style={{ padding: 'var(--spacing-4)' }}>
                 <CheckCircle size={32} color="var(--success-color)" style={{ marginBottom: 'var(--spacing-2)' }} />
                 <p className="text-sm" style={{ color: 'var(--success-color)' }}>
@@ -147,8 +208,8 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {projetosProblematicos.map(projeto => (
-                  <div key={projeto.id_projeto} className="alert" style={{ 
+                {alocacoesProblematicas.map(alocacao => (
+                  <div key={alocacao.id} className="alert" style={{ 
                     padding: 'var(--spacing-3)', 
                     backgroundColor: 'rgb(245 158 11 / 0.1)',
                     borderRadius: 'var(--radius)',
@@ -156,14 +217,14 @@ export default function Dashboard() {
                   }}>
                     <p className="text-sm font-medium" style={{ color: 'var(--warning-color)' }}>
                       <Warning size={14} style={{ marginRight: '4px', display: 'inline' }} />
-                      {projeto.nome}
+                      {alocacao.nome}
                     </p>
                     <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                      {projeto.salas.length === 0 && projeto.turmas.length === 0 
-                        ? 'Alocação vazia - adicione salas e turmas'
-                        : projeto.salas.length === 0 
+                      {alocacao.salas === 0 && alocacao.horarios === 0 
+                        ? 'Alocação vazia - adicione salas e horários'
+                        : alocacao.salas === 0 
                         ? 'Adicione salas à alocação'
-                        : 'Adicione turmas à alocação'
+                        : 'Adicione horários à alocação'
                       }
                     </p>
                   </div>
@@ -184,16 +245,16 @@ export default function Dashboard() {
           </div>
           <div className="card-content">
             <div className="flex flex-col gap-4">
-              {state.projetos.map(projeto => {
-                const readyForAllocation = projeto.salas.length > 0 && projeto.turmas.length > 0;
-                const hasResults = state.resultados_alocacao.some(r => r.projeto_id === projeto.id_projeto);
+              {alocacoesCompatibilidade.map(alocacao => {
+                const readyForAllocation = alocacao.salas > 0 && alocacao.horarios > 0;
+                const hasResults = alocacao.temResultados;
 
                 return (
-                  <div key={projeto.id_projeto} className="flex items-center justify-between">
+                  <div key={alocacao.id} className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">{projeto.nome}</p>
+                      <p className="text-sm font-medium">{alocacao.nome}</p>
                       <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {projeto.salas.length} salas • {projeto.turmas.length} turmas
+                        {alocacao.salas} salas • {alocacao.horarios} horários
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -242,8 +303,9 @@ export default function Dashboard() {
               className="btn btn-primary"
               onClick={() => {
                 const dados = {
-                  alocacoes: state.projetos,
-                  resultados_alocacao: state.resultados_alocacao,
+                  stats: stats,
+                  alocacoes: alocacoesCompatibilidade,
+                  problemas: alocacoesProblematicas,
                   timestamp: new Date().toISOString()
                 };
                 
@@ -251,7 +313,7 @@ export default function Dashboard() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'alocacoes.json';
+                a.download = `dashboard-${new Date().toISOString().split('T')[0]}.json`;
                 a.click();
                 URL.revokeObjectURL(url);
               }}
@@ -264,11 +326,12 @@ export default function Dashboard() {
               className="btn btn-secondary"
               onClick={() => {
                 const dados = {
-                  alocacoes: state.projetos,
-                  resultados_alocacao: state.resultados_alocacao
+                  stats: stats,
+                  alocacoes: alocacoesCompatibilidade,
+                  problemas: alocacoesProblematicas
                 };
                 navigator.clipboard.writeText(JSON.stringify(dados, null, 2));
-                alert('Dados copiados para a área de transferência!');
+                alert('Dados do dashboard copiados para a área de transferência!');
               }}
             >
               <Copy size={16} style={{ marginRight: '6px' }} />

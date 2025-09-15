@@ -7,7 +7,7 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const [activeTab, setActiveTab] = useState('alocacoes');
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: ChartBar },

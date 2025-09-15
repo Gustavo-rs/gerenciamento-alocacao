@@ -21,8 +21,8 @@ function AppContent({ activeTab }: AppContentProps) {
        case 'resultados':
          return <ResultadosView />;
        
-       default:
-         return <AlocacoesManager />;
+      default:
+        return <Dashboard />;
      }
   };
 
