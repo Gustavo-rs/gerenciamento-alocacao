@@ -1610,13 +1610,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         size="md"
       >
         {cloneHorarioData && (
-          <div className="space-y-4">
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="space-y-4" >
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg" style={{ padding: '6px' }}>
               <h4 className="font-semibold mb-2 flex items-center gap-2">
                 <Copy size={18} />
                 Horário a ser clonado:
               </h4>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3" style={{ margin: '6px' }}>
                 <span className="badge badge-primary">
                   {diasLabels[cloneHorarioData.horario.dia_semana]}
                 </span>
@@ -1627,7 +1627,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                   {cloneHorarioData.horario.turmas.length} {cloneHorarioData.horario.turmas.length === 1 ? 'turma' : 'turmas'}
                 </span>
             </div>
-              <div className="mt-3">
+              <div className="mt-3" style={{ margin: '6px' }}>
                 <p className="text-sm text-gray-600">
                   <strong>Turmas que serão clonadas:</strong>
                 </p>
