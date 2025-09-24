@@ -4,7 +4,7 @@ import type { Sala, FormSala, Horario, FormHorario, DiaSemana, Periodo, Alocacao
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import { useToast } from './Toast';
-import ResultadosAlocacaoInteligente from './ResultadosAlocacaoInteligente';
+import ResultadosAlocacaoInteligenteAmigavel from './ResultadosAlocacaoInteligenteAmigavel';
 import ProcessingModal from './ProcessingModal';
 
 // Labels para exibição
@@ -1584,7 +1584,7 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       />
 
       {/* Modal de resultados da alocação inteligente */}
-      <ResultadosAlocacaoInteligente
+      <ResultadosAlocacaoInteligenteAmigavel
         alocacaoId={resultadosModal.alocacaoId}
         nomeAlocacao={resultadosModal.nomeAlocacao}
         isOpen={resultadosModal.isOpen}
