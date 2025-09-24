@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Brain, Clock, Users, Buildings, TrendUp, Eye, X, Warning, Student, Wheelchair, CheckCircle, Info } from 'phosphor-react';
+import { Brain, Clock, Users, TrendUp, Eye, X, Warning, CheckCircle, Info } from 'phosphor-react';
 import { useToast } from './Toast';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -398,9 +398,9 @@ export default function ResultadosAlocacaoInteligenteAmigavel({
                                 ) : (
                                   <>
                                     {resultado.alocacoes.length} de {resultado.total_turmas || resultado.alocacoes.length} turmas alocadas
-                                    {resultado.turmas_sobrando && resultado.turmas_sobrando > 0 && (
+                                    {Number(resultado.turmas_sobrando) > 0 && (
                                       <span style={{ color: '#f59e0b', fontWeight: '500' }}>
-                                        {' • '}{resultado.turmas_sobrando} não alocada{resultado.turmas_sobrando > 1 ? 's' : ''}
+                                        {' • '}{resultado.turmas_sobrando} não alocada{Number(resultado.turmas_sobrando) > 1 ? 's' : ''}
                                       </span>
                                     )}
                                   </>

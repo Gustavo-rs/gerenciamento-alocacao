@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Users, Brain, ChartBar, Copy } from 'phosphor-react';
+import { Plus, Eye, PencilSimple, Trash, FloppyDisk, X, Buildings, Calendar, Users, Brain, ChartBar, Copy, CaretDown, CaretRight } from 'phosphor-react';
 import type { Sala, FormSala, Horario, FormHorario, DiaSemana, Periodo, AlocacaoPrincipal, Turma, FormTurma } from '../types';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
@@ -98,13 +98,57 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
     esp_necessarias: 0
   });
 
+  // Estados para expansíveis
+  const [expandedSections, setExpandedSections] = useState<{
+    [alocacaoId: string]: {
+      salas: boolean;
+      horarios: boolean;
+      turmas: { [horarioId: string]: boolean };
+    }
+  }>({});
+
+  // Funções para controlar expansíveis
+  const toggleSection = (alocacaoId: string, section: 'salas' | 'horarios') => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [alocacaoId]: {
+        ...prev[alocacaoId],
+        [section]: !prev[alocacaoId]?.[section]
+      }
+    }));
+  };
+
+  const toggleTurmas = (alocacaoId: string, horarioId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [alocacaoId]: {
+        ...prev[alocacaoId],
+        turmas: {
+          ...prev[alocacaoId]?.turmas,
+          [horarioId]: !prev[alocacaoId]?.turmas?.[horarioId]
+        }
+      }
+    }));
+  };
+
+  const isSectionExpanded = (alocacaoId: string, section: 'salas' | 'horarios') => {
+    return expandedSections[alocacaoId]?.[section] || false;
+  };
+
+  const isTurmasExpanded = (alocacaoId: string, horarioId: string) => {
+    return expandedSections[alocacaoId]?.turmas?.[horarioId] || false;
+  };
+
   // Carregar alocações da API
   useEffect(() => {
     loadAlocacoes();
   }, []);
 
-  const loadAlocacoes = async () => {
-    setLoading(true);
+  const loadAlocacoes = async (preserveScroll = false) => {
+    if (!preserveScroll) {
+      setLoading(true);
+    }
+    
     try {
       const response = await fetch('http://localhost:3001/api/alocacoes');
       const data = await response.json();
@@ -147,7 +191,9 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
       console.error('Erro ao carregar alocações:', error);
       setAlocacoes([]); // Fallback para array vazio em caso de erro
     } finally {
-      setLoading(false);
+      if (!preserveScroll) {
+        setLoading(false);
+      }
     }
   };
 
@@ -176,17 +222,17 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
 
       const data = await response.json();
       
-      if (data.success) {
-        // Recarregar lista
-        await loadAlocacoes();
-        
-        // Reset form
-        setFormData({ nome: '', descricao: '' });
-        setShowForm(false);
-        setEditingAlocacao(null);
-        
-        toast.success('Sucesso!', 'Alocação salva com sucesso!');
-      } else {
+       if (data.success) {
+         // Recarregar lista preservando posição
+         await loadAlocacoes(true);
+         
+         // Reset form
+         setFormData({ nome: '', descricao: '' });
+         setShowForm(false);
+         setEditingAlocacao(null);
+         
+         toast.success('Sucesso!', 'Alocação salva com sucesso!');
+       } else {
         toast.error('Erro', data.error || 'Erro ao salvar alocação');
       }
     } catch (error) {
@@ -238,10 +284,10 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         
         const data = await response.json();
         
-        if (data.success) {
-          await loadAlocacoes();
-            toast.success('Sucesso!', data.message || 'Alocação excluída com sucesso!');
-        } else {
+         if (data.success) {
+           await loadAlocacoes(true);
+             toast.success('Sucesso!', data.message || 'Alocação excluída com sucesso!');
+         } else {
             toast.error('Erro', data.error || 'Erro ao excluir alocação');
         }
       } catch (error) {
@@ -272,10 +318,10 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         
         const data = await response.json();
         
-        if (data.success) {
-          await loadAlocacoes();
-            toast.success('Sucesso!', 'Sala removida com sucesso!');
-        } else {
+         if (data.success) {
+           await loadAlocacoes(true);
+             toast.success('Sucesso!', 'Sala removida com sucesso!');
+         } else {
             toast.error('Erro', data.error || 'Erro ao remover sala');
         }
       } catch (error) {
@@ -306,13 +352,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
 
       const data = await response.json();
       
-      if (data.success) {
-        await loadAlocacoes();
-        setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
-        setShowHorarioModal(false);
-        setSelectedAlocacaoId(null);
-        toast.success('Sucesso!', 'Horário criado com sucesso!');
-      } else {
+       if (data.success) {
+         await loadAlocacoes(true);
+         setHorarioForm({ dia_semana: 'SEGUNDA', periodo: 'MATUTINO' });
+         setShowHorarioModal(false);
+         setSelectedAlocacaoId(null);
+         toast.success('Sucesso!', 'Horário criado com sucesso!');
+       } else {
         toast.error('Erro', data.error || 'Erro ao criar horário');
       }
     } catch (error) {
@@ -367,13 +413,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
 
       const horarioData = await horarioResponse.json();
       
-      if (horarioData.success) {
-        await loadAlocacoes();
-        setTurmaForm({ nome: '', alunos: 0, esp_necessarias: 0 });
-        setShowTurmaModal(false);
-        setSelectedHorarioId(null);
-        toast.success('Sucesso!', 'Turma criada e adicionada ao horário com sucesso!');
-      } else {
+       if (horarioData.success) {
+         await loadAlocacoes(true);
+         setTurmaForm({ nome: '', alunos: 0, esp_necessarias: 0 });
+         setShowTurmaModal(false);
+         setSelectedHorarioId(null);
+         toast.success('Sucesso!', 'Turma criada e adicionada ao horário com sucesso!');
+       } else {
         toast.error('Erro', horarioData.error || 'Erro ao adicionar turma ao horário');
       }
     } catch (error) {
@@ -447,13 +493,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           cadeiras_especiais: 0,
         });
         setShowSalaModal(false);
-        setSelectedAlocacaoId(null);
-        
-        // Reload data
-        loadAlocacoes();
-      } else {
-        toast.error('Erro', data.error || 'Erro ao criar sala');
-      }
+         setSelectedAlocacaoId(null);
+         
+         // Reload data
+         loadAlocacoes(true);
+       } else {
+         toast.error('Erro', data.error || 'Erro ao criar sala');
+       }
     } catch (error) {
       console.error('Erro ao criar sala:', error);
       toast.error('Erro', 'Erro ao criar sala');
@@ -491,13 +537,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           cadeiras_especiais: 0,
         });
         setEditingSala(null);
-        setShowSalaModal(false);
-        
-        // Reload data
-        loadAlocacoes();
-      } else {
-        toast.error('Erro', data.error || 'Erro ao atualizar sala');
-      }
+         setShowSalaModal(false);
+         
+         // Reload data
+         loadAlocacoes(true);
+       } else {
+         toast.error('Erro', data.error || 'Erro ao atualizar sala');
+       }
     } catch (error) {
       console.error('Erro ao atualizar sala:', error);
       toast.error('Erro', 'Erro ao atualizar sala');
@@ -538,13 +584,13 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         // Reset form
         setTurmaForm({ nome: '', alunos: 0, esp_necessarias: 0 });
         setEditingTurma(null);
-        setShowTurmaModal(false);
-        
-        // Reload data
-        loadAlocacoes();
-      } else {
-        toast.error('Erro', data.error || 'Erro ao atualizar turma');
-      }
+         setShowTurmaModal(false);
+         
+         // Reload data
+         loadAlocacoes(true);
+       } else {
+         toast.error('Erro', data.error || 'Erro ao atualizar turma');
+       }
     } catch (error) {
       console.error('Erro ao atualizar turma:', error);
       toast.error('Erro', 'Erro ao atualizar turma');
@@ -620,11 +666,11 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           periodo: 'MATUTINO'
         });
         
-        // Reload data
-        loadAlocacoes();
-      } else {
-        toast.error('Erro', data.error || 'Erro ao clonar horário');
-      }
+         // Reload data
+         loadAlocacoes(true);
+       } else {
+         toast.error('Erro', data.error || 'Erro ao clonar horário');
+       }
     } catch (error) {
       console.error('Erro ao clonar horário:', error);
       toast.error('Erro', 'Erro ao clonar horário');
@@ -655,10 +701,10 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
           
           const data = await response.json();
           
-          if (data.success) {
-        await loadAlocacoes();
-            toast.success('Sucesso!', `Horário deletado${turmasCount > 0 ? ` com ${turmasCount} turma${turmasCount > 1 ? 's' : ''}` : ''}`);
-      } else {
+           if (data.success) {
+         await loadAlocacoes(true);
+             toast.success('Sucesso!', `Horário deletado${turmasCount > 0 ? ` com ${turmasCount} turma${turmasCount > 1 ? 's' : ''}` : ''}`);
+       } else {
             toast.error('Erro', data.error || 'Erro ao deletar horário');
       }
     } catch (error) {
@@ -688,10 +734,10 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
         
         const data = await response.json();
         
-        if (data.success) {
-          await loadAlocacoes();
-            toast.success('Sucesso!', 'Turma removida com sucesso!');
-        } else {
+         if (data.success) {
+           await loadAlocacoes(true);
+             toast.success('Sucesso!', 'Turma removida com sucesso!');
+         } else {
             toast.error('Erro', data.error || 'Erro ao remover turma');
         }
       } catch (error) {
@@ -996,236 +1042,289 @@ export default function AlocacoesManager({ onSelectAlocacao }: AlocacoesManagerP
                     </div>
                   </div>
 
-                  {/* Salas da Alocação */}
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-lg font-semibold flex items-center gap-2">
-                        <Buildings size={18} />
-                        Salas da Alocação
-                      </h4>
-                      <button
-                        onClick={() => {
-                          setSelectedAlocacaoId(alocacao.id);
-                          setShowSalaModal(true);
-                        }}
-                        className="btn btn-sm btn-primary"
-                        disabled={loading}
-                        title="Adicionar nova sala"
-                      >
-                        <Plus size={14} style={{ marginRight: '6px' }} />
-                        Adicionar Sala
-                      </button>
-                    </div>
+                   {/* Salas da Alocação - Expansível */}
+                   <div className="mb-6">
+                     <div 
+                       className="flex items-center justify-between mb-4 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                       onClick={() => toggleSection(alocacao.id, 'salas')}
+                       style={{ cursor: 'pointer' }}
+                     >
+                       <h4 className="text-lg font-semibold flex items-center gap-2">
+                         {isSectionExpanded(alocacao.id, 'salas') ? (
+                           <CaretDown size={18} />
+                         ) : (
+                           <CaretRight size={18} />
+                         )}
+                         <Buildings size={18} />
+                         Salas da Alocação
+                         <span className="badge badge-info text-xs">
+                           {alocacao.salas.length}
+                         </span>
+                       </h4>
+                       <button
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           setSelectedAlocacaoId(alocacao.id);
+                           setShowSalaModal(true);
+                         }}
+                         className="btn btn-sm btn-primary"
+                         disabled={loading}
+                         title="Adicionar nova sala"
+                       >
+                         <Plus size={14} style={{ marginRight: '6px' }} />
+                         Adicionar Sala
+                       </button>
+                     </div>
                     
-                    {alocacao.salas.length === 0 ? (
-                      <div className="text-center py-8 border-2 border-dashed rounded-lg" style={{ borderColor: 'var(--border-color)' }}>
-                        <Buildings size={32} color="var(--text-secondary)" style={{ marginBottom: '12px' }} />
-                        <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                          Nenhuma sala adicionada
-                        </p>
-                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                          Clique em "Adicionar Sala" para começar
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-3 mb-4">
-                        {alocacao.salas.map(sala => (
-                          <div key={sala.id} className="card">
-                            <div className="card-content" style={{ padding: 'var(--spacing-4)' }}>
-                              <div className="flex items-start justify-between">
-                                <div style={{ flex: 1 }}>
-                                  <div className="flex items-center" style={{ gap: 'var(--spacing-2)', marginBottom: 'var(--spacing-2)' }}>
-                                    <h5 className="font-semibold">{sala.nome}</h5>
-                                    
-                                  </div>
-                                  
-                                  <p className="text-sm" style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-2)' }}>
-                                    {sala.localizacao || 'Localização não informada'}
-                                  </p>
-                                  
-                                  <div className="flex" style={{ gap: 'var(--spacing-2)', flexWrap: 'wrap' }}>
-                                  <span className="badge badge-info">
-                                      {sala.capacidade_total} lugares
-                                    </span>
-                                    {sala.cadeiras_especiais > 0 && (
-                                      <span className="badge badge-warning">
-                                        {sala.cadeiras_especiais} especiais
-                                      </span>
-                                    )}
-                                    {sala.cadeiras_moveis && (
-                                      <span className="badge badge-secondary">
-                                        Móveis
-                                      </span>
-                                    )}
-                                    <span className={`badge ${sala.status === 'ATIVA' ? 'badge-success' : 'badge-warning'}`}>
-                                      {sala.status}
-                                    </span>
-                                  </div>
-                                </div>
-                                
-                                 <div className="flex" style={{ flexDirection: 'column', gap: 'var(--spacing-2)', alignItems: 'center' }}>
-                                   <button 
-                                     onClick={() => handleEditSala(sala)}
-                                     className="btn btn-sm btn-secondary"
-                                     disabled={loading}
-                                     title="Editar sala"
-                                   >
-                                     <PencilSimple size={14} />
-                                   </button>
-                                  <button
-                                    onClick={() => handleRemoveSala(alocacao, sala)}
-                                    className="btn btn-sm btn-danger"
-                                    disabled={loading}
-                                    title="Remover sala"
-                                  >
-                                    <Trash size={14} />
-                                  </button>
-                                 </div>
-                                </div>
-                            </div>
+                    {isSectionExpanded(alocacao.id, 'salas') && (
+                      <>
+                        {alocacao.salas.length === 0 ? (
+                          <div className="text-center py-8 border-2 border-dashed rounded-lg" style={{ borderColor: 'var(--border-color)' }}>
+                            <Buildings size={32} color="var(--text-secondary)" style={{ marginBottom: '12px' }} />
+                            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                              Nenhuma sala adicionada
+                            </p>
+                            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                              Clique em "Adicionar Sala" para começar
+                            </p>
                           </div>
-                        ))}
-                      </div>
+                        ) : (
+                          <div className="grid gap-3 mb-4">
+                            {alocacao.salas.map(sala => (
+                              <div key={sala.id} className="card">
+                                <div className="card-content" style={{ padding: 'var(--spacing-4)' }}>
+                                  <div className="flex items-start justify-between">
+                                    <div style={{ flex: 1 }}>
+                                      <div className="flex items-center" style={{ gap: 'var(--spacing-2)', marginBottom: 'var(--spacing-2)' }}>
+                                        <h5 className="font-semibold">{sala.nome}</h5>
+                                        
+                                      </div>
+                                      
+                                      <p className="text-sm" style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-2)' }}>
+                                        {sala.localizacao || 'Localização não informada'}
+                                      </p>
+                                      
+                                      <div className="flex" style={{ gap: 'var(--spacing-2)', flexWrap: 'wrap' }}>
+                                      <span className="badge badge-info">
+                                          {sala.capacidade_total} lugares
+                                        </span>
+                                        {sala.cadeiras_especiais > 0 && (
+                                          <span className="badge badge-warning">
+                                            {sala.cadeiras_especiais} especiais
+                                          </span>
+                                        )}
+                                        {sala.cadeiras_moveis && (
+                                          <span className="badge badge-secondary">
+                                            Móveis
+                                          </span>
+                                        )}
+                                        <span className={`badge ${sala.status === 'ATIVA' ? 'badge-success' : 'badge-warning'}`}>
+                                          {sala.status}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                     <div className="flex" style={{ flexDirection: 'column', gap: 'var(--spacing-2)', alignItems: 'center' }}>
+                                       <button 
+                                         onClick={() => handleEditSala(sala)}
+                                         className="btn btn-sm btn-secondary"
+                                         disabled={loading}
+                                         title="Editar sala"
+                                       >
+                                         <PencilSimple size={14} />
+                                       </button>
+                                      <button
+                                        onClick={() => handleRemoveSala(alocacao, sala)}
+                                        className="btn btn-sm btn-danger"
+                                        disabled={loading}
+                                        title="Remover sala"
+                                      >
+                                        <Trash size={14} />
+                                      </button>
+                                     </div>
+                                    </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
 
                   </div>
 
-                  {/* Horários da Alocação */}
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-lg font-semibold flex items-center" style={{ gap: 'var(--spacing-2)' }}>
-                        <Calendar size={18} />
-                        Horários da Alocação
-                      </h4>
-                      <button
-                        onClick={() => {
-                          setSelectedAlocacaoId(alocacao.id);
-                          setShowHorarioModal(true);
-                        }}
-                        className="btn btn-sm btn-primary"
-                        disabled={loading}
-                        title="Adicionar novo horário"
-                      >
-                        <Plus size={14} style={{ marginRight: '6px' }} />
-                        Adicionar Horário
-                      </button>
-                    </div>
+                   {/* Horários da Alocação - Expansível */}
+                   <div className="mb-6">
+                     <div 
+                       className="flex items-center justify-between mb-4 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                       onClick={() => toggleSection(alocacao.id, 'horarios')}
+                       style={{ cursor: 'pointer' }}
+                     >
+                       <h4 className="text-lg font-semibold flex items-center gap-2">
+                         {isSectionExpanded(alocacao.id, 'horarios') ? (
+                           <CaretDown size={18} />
+                         ) : (
+                           <CaretRight size={18} />
+                         )}
+                         <Calendar size={18} />
+                         Horários da Alocação
+                         <span className="badge badge-info text-xs">
+                           {alocacao.horarios.length}
+                         </span>
+                       </h4>
+                       <button
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           setSelectedAlocacaoId(alocacao.id);
+                           setShowHorarioModal(true);
+                         }}
+                         className="btn btn-sm btn-primary"
+                         disabled={loading}
+                         title="Adicionar novo horário"
+                       >
+                         <Plus size={14} style={{ marginRight: '6px' }} />
+                         Adicionar Horário
+                       </button>
+                     </div>
                     
-                    {alocacao.horarios.length === 0 ? (
-                      <div className="text-center py-8 border-2 border-dashed rounded-lg" style={{ borderColor: 'var(--border-color)' }}>
-                        <Calendar size={32} color="var(--text-secondary)" style={{ marginBottom: '12px' }} />
-                        <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                          Nenhum horário definido
-                        </p>
-                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                          Adicione horários para organizar as turmas por dia e período
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-3">
-                        {alocacao.horarios.map(horario => (
-                          <div key={horario.id} className="card">
-                            <div className="card-content" style={{ padding: 'var(--spacing-4)' }}>
-                              <div className="flex items-start justify-between">
-                                <div style={{ flex: 1 }}>
-                                  <div className="flex items-center" style={{ gap: 'var(--spacing-2)', marginBottom: 'var(--spacing-2)' }}>
-                                    <h5 className="font-semibold">{diasLabels[horario.dia_semana]}</h5>
-                                    <span className="badge badge-primary">
-                                      {periodosLabels[horario.periodo]}
-                                    </span>
-                                    <span className="badge badge-info">
-                                      {horario.turmas.length} {horario.turmas.length === 1 ? 'turma' : 'turmas'}
-                                    </span>
-                                  </div>
-                                  
-                                  {/* Turmas do Horário */}
-                                  {horario.turmas.length > 0 && (
-                                    <div style={{ marginBottom: 'var(--spacing-3)' }}>
-                                      <div className="grid gap-2">
-                                        {horario.turmas.map(turma => (
-                                           <div key={turma.id} className="flex items-center justify-between" style={{ backgroundColor: '#f8f9fa', padding: 'var(--spacing-3)', borderRadius: '4px' }}>
-                                             <div style={{ flex: 1 }}>
-                                               <div className="flex items-center" style={{ gap: 'var(--spacing-2)', marginBottom: 'var(--spacing-2)' }}>
-                                                 <span className="font-semibold text-sm">{turma.nome}</span>
-                                               </div>
-                                               
-                                               <div className="flex" style={{ gap: 'var(--spacing-2)', flexWrap: 'wrap' }}>
-                                                 <span className="badge badge-info">
-                                                   {turma.alunos} alunos
-                                                 </span>
-                                                 {turma.esp_necessarias > 0 && (
-                                                   <span className="badge badge-warning">
-                                                     {turma.esp_necessarias} especiais
-                                                   </span>
-                                                 )}
-                                               </div>
-                                             </div>
-                                             <div className="flex" style={{ gap: 'var(--spacing-1)' }}>
-                                              <button
-                                                onClick={() => handleEditTurma(turma)}
-                                                className="btn btn-xs btn-secondary"
-                                                disabled={loading}
-                                                title="Editar turma"
-                                              >
-                                                <PencilSimple size={12} style={{ margin: '8px' }} />
-                                              </button>
-                                            <button
-                                              onClick={() => handleRemoveTurma(horario, turma)}
-                                              className="btn btn-xs btn-danger"
-                                              disabled={loading}
-                                              title="Remover turma"
-                                            >
-                                              <Trash size={12} style={{ margin: '8px' }} />
-                                            </button>
+                    {isSectionExpanded(alocacao.id, 'horarios') && (
+                      <>
+                        {alocacao.horarios.length === 0 ? (
+                          <div className="text-center py-8 border-2 border-dashed rounded-lg" style={{ borderColor: 'var(--border-color)' }}>
+                            <Calendar size={32} color="var(--text-secondary)" style={{ marginBottom: '12px' }} />
+                            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                              Nenhum horário definido
+                            </p>
+                            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                              Adicione horários para organizar as turmas por dia e período
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid gap-3">
+                            {alocacao.horarios.map(horario => (
+                              <div key={horario.id} className="card">
+                                <div className="card-content" style={{ padding: 'var(--spacing-4)' }}>
+                                  <div className="flex items-start justify-between">
+                                    <div style={{ flex: 1 }}>
+                                      <div className="flex items-center" style={{ gap: 'var(--spacing-2)', marginBottom: 'var(--spacing-2)' }}>
+                                        <h5 className="font-semibold">{diasLabels[horario.dia_semana]}</h5>
+                                        <span className="badge badge-primary">
+                                          {periodosLabels[horario.periodo]}
+                                        </span>
+                                        <span className="badge badge-info">
+                                          {horario.turmas.length} {horario.turmas.length === 1 ? 'turma' : 'turmas'}
+                                        </span>
+                                      </div>
+                                      
+                                      {/* Turmas do Horário - Expansível */}
+                                      {horario.turmas.length > 0 && (
+                                        <div style={{ marginBottom: 'var(--spacing-3)' }}>
+                                          <div 
+                                            className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors mb-2"
+                                            onClick={() => toggleTurmas(alocacao.id, horario.id)}
+                                            style={{ cursor: 'pointer' }}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              {isTurmasExpanded(alocacao.id, horario.id) ? (
+                                                <CaretDown size={16} />
+                                              ) : (
+                                                <CaretRight size={16} />
+                                              )}
+                                              <span className="font-medium text-sm">
+                                                Turmas ({horario.turmas.length})
+                                              </span>
                                             </div>
                                           </div>
-                                        ))}
-                                      </div>
+                                          
+                                          {isTurmasExpanded(alocacao.id, horario.id) && (
+                                            <div className="grid gap-2">
+                                              {horario.turmas.map(turma => (
+                                                 <div key={turma.id} className="flex items-center justify-between" style={{ backgroundColor: '#f8f9fa', padding: 'var(--spacing-3)', borderRadius: '4px' }}>
+                                                   <div style={{ flex: 1 }}>
+                                                     <div className="flex items-center" style={{ gap: 'var(--spacing-2)', marginBottom: 'var(--spacing-2)' }}>
+                                                       <span className="font-semibold text-sm">{turma.nome}</span>
+                                                     </div>
+                                                     
+                                                     <div className="flex" style={{ gap: 'var(--spacing-2)', flexWrap: 'wrap' }}>
+                                                       <span className="badge badge-info">
+                                                         {turma.alunos} alunos
+                                                       </span>
+                                                       {turma.esp_necessarias > 0 && (
+                                                         <span className="badge badge-warning">
+                                                           {turma.esp_necessarias} especiais
+                                                         </span>
+                                                       )}
+                                                     </div>
+                                                   </div>
+                                                   <div className="flex" style={{ gap: 'var(--spacing-1)' }}>
+                                                    <button
+                                                      onClick={() => handleEditTurma(turma)}
+                                                      className="btn btn-xs btn-secondary"
+                                                      disabled={loading}
+                                                      title="Editar turma"
+                                                    >
+                                                      <PencilSimple size={12} style={{ margin: '8px' }} />
+                                                    </button>
+                                                  <button
+                                                    onClick={() => handleRemoveTurma(horario, turma)}
+                                                    className="btn btn-xs btn-danger"
+                                                    disabled={loading}
+                                                    title="Remover turma"
+                                                  >
+                                                    <Trash size={12} style={{ margin: '8px' }} />
+                                                  </button>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                      
+                                       {/* Botões de ação do horário */}
+                                       <div className="pt-3 border-t border-gray-200 mt-3 space-y-2" >
+                                         <button
+                                           onClick={() => {
+                                             setSelectedHorarioId(horario.id);
+                                             setShowTurmaModal(true);
+                                           }}
+                                           className="btn btn-sm btn-outline-primary w-full flex items-center justify-center gap-2"
+                                           disabled={loading}
+                                         >
+                                           <Users size={16} />
+                                           Adicionar Nova Turma
+                                         </button>
+                                         
+                                         {horario.turmas.length > 0 && (
+                                           <button
+                                             onClick={() => handleCloneHorario(horario, alocacao)}
+                                             className="btn btn-sm btn-outline-secondary w-full flex items-center justify-center gap-2"
+                                             disabled={loading}
+                                             title="Clonar este horário com todas as turmas"
+                                           >
+                                             <Copy size={16} />
+                                             Clonar Horário
+                                           </button>
+                                         )}
+                                         
+                                         <button
+                                           onClick={() => handleDeleteHorario(horario)}
+                                           className="btn btn-sm btn-outline-danger w-full flex items-center justify-center gap-2"
+                                           disabled={loading}
+                                           title="Deletar este horário e todas as suas turmas"
+                                         >
+                                           <Trash size={16} />
+                                           Deletar Horário
+                                         </button>
+                                       </div>
                                     </div>
-                                  )}
-                                  
-                                   {/* Botões de ação do horário */}
-                                   <div className="pt-3 border-t border-gray-200 mt-3 space-y-2">
-                                     <button
-                                       onClick={() => {
-                                         setSelectedHorarioId(horario.id);
-                                         setShowTurmaModal(true);
-                                       }}
-                                       className="btn btn-sm btn-outline-primary w-full flex items-center justify-center gap-2"
-                                       disabled={loading}
-                                     >
-                                       <Users size={16} />
-                                       Adicionar Nova Turma
-                                     </button>
-                                     
-                                     {horario.turmas.length > 0 && (
-                                       <button
-                                         onClick={() => handleCloneHorario(horario, alocacao)}
-                                         className="btn btn-sm btn-outline-secondary w-full flex items-center justify-center gap-2"
-                                         disabled={loading}
-                                         title="Clonar este horário com todas as turmas"
-                                       >
-                                         <Copy size={16} />
-                                         Clonar Horário
-                                       </button>
-                                     )}
-                                     
-                                     <button
-                                       onClick={() => handleDeleteHorario(horario)}
-                                       className="btn btn-sm btn-outline-danger w-full flex items-center justify-center gap-2"
-                                       disabled={loading}
-                                       title="Deletar este horário e todas as suas turmas"
-                                     >
-                                       <Trash size={16} />
-                                       Deletar Horário
-                                     </button>
-                                   </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        )}
+                      </>
                     )}
 
 
